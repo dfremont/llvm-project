@@ -52,6 +52,7 @@ namespace llvm {
   class MCSection;
   class MCSectionCOFF;
   class MCSectionELF;
+  class MCSectionGlulx;
   class MCSectionGOFF;
   class MCSectionMachO;
   class MCSectionWasm;
@@ -75,7 +76,7 @@ namespace llvm {
     using DiagHandlerTy =
         std::function<void(const SMDiagnostic &, bool, const SourceMgr &,
                            std::vector<const MDNode *> &)>;
-    enum Environment { IsMachO, IsELF, IsGOFF, IsCOFF, IsWasm, IsXCOFF };
+    enum Environment { IsMachO, IsELF, IsGOFF, IsCOFF, IsWasm, IsXCOFF, IsGlulx };
 
   private:
     Environment Env;
@@ -118,6 +119,7 @@ namespace llvm {
     SpecificBumpPtrAllocator<MCSectionGOFF> GOFFAllocator;
     SpecificBumpPtrAllocator<MCSectionWasm> WasmAllocator;
     SpecificBumpPtrAllocator<MCSectionXCOFF> XCOFFAllocator;
+    SpecificBumpPtrAllocator<MCSectionGlulx> GlulxAllocator;
     SpecificBumpPtrAllocator<MCInst> MCInstAllocator;
 
     /// Bindings of names to symbols.
@@ -328,6 +330,7 @@ namespace llvm {
     std::map<std::string, MCSectionGOFF *> GOFFUniquingMap;
     std::map<WasmSectionKey, MCSectionWasm *> WasmUniquingMap;
     std::map<XCOFFSectionKey, MCSectionXCOFF *> XCOFFUniquingMap;
+    std::map<std::string, MCSectionGlulx *> GlulxUniquingMap;
     StringMap<bool> RelSecNames;
 
     SpecificBumpPtrAllocator<MCSubtargetInfo> MCSubtargetAllocator;
@@ -598,6 +601,7 @@ namespace llvm {
                                                 unsigned Flags,
                                                 unsigned EntrySize);
 
+    MCSectionGlulx *getGlulxSection(StringRef Section, SectionKind Kind);
     MCSectionGOFF *getGOFFSection(StringRef Section, SectionKind Kind);
 
     MCSectionCOFF *getCOFFSection(StringRef Section, unsigned Characteristics,

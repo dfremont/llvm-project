@@ -17,6 +17,7 @@
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
+#include "llvm/MC/MCSectionGlulx.h"
 #include "llvm/MC/MCSectionGOFF.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCSectionWasm.h"
@@ -508,6 +509,11 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
 void MCObjectFileInfo::initGOFFMCObjectFileInfo(const Triple &T) {
   TextSection = Ctx->getGOFFSection(".text", SectionKind::getText());
   BSSSection = Ctx->getGOFFSection(".bss", SectionKind::getBSS());
+}
+
+void MCObjectFileInfo::initGlulxMCObjectFileInfo(const Triple &T) {
+  TextSection = Ctx->getGlulxSection("; text section begins", SectionKind::getText());
+  BSSSection = Ctx->getGlulxSection("!bss", SectionKind::getBSS());
 }
 
 void MCObjectFileInfo::initCOFFMCObjectFileInfo(const Triple &T) {
@@ -1025,6 +1031,9 @@ void MCObjectFileInfo::initMCObjectFileInfo(MCContext &MCCtx, bool PIC,
   case MCContext::IsXCOFF:
     initXCOFFMCObjectFileInfo(TheTriple);
     break;
+  case MCContext::IsGlulx:
+    initGlulxMCObjectFileInfo(TheTriple);
+    break;
   }
 }
 
@@ -1041,6 +1050,7 @@ MCSection *MCObjectFileInfo::getDwarfComdatSection(const char *Name,
   case Triple::COFF:
   case Triple::GOFF:
   case Triple::XCOFF:
+  case Triple::Glulx:
   case Triple::UnknownObjectFormat:
     report_fatal_error("Cannot get DWARF comdat section for this object file "
                        "format: not implemented.");

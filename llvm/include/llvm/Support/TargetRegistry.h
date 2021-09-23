@@ -566,6 +566,8 @@ public:
         S = createWasmStreamer(Ctx, std::move(TAB), std::move(OW),
                                std::move(Emitter), RelaxAll);
       break;
+    case Triple::Glulx:
+      report_fatal_error("Glulx MCObjectStreamer not yet implemented");
     case Triple::GOFF:
       report_fatal_error("GOFF MCObjectStreamer not implemented yet");
     case Triple::XCOFF:

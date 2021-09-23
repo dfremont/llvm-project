@@ -5239,6 +5239,7 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
     llvm_unreachable("XCOFF is not yet implemented");
   case llvm::Triple::COFF:
   case llvm::Triple::ELF:
+  case llvm::Triple::Glulx:
   case llvm::Triple::Wasm:
     GV->setSection("cfstring");
     break;

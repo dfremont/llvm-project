@@ -2084,6 +2084,7 @@ StringRef ModuleAddressSanitizer::getGlobalMetadataSection() const {
   case Triple::ELF:   return "asan_globals";
   case Triple::MachO: return "__DATA,__asan_globals,regular";
   case Triple::Wasm:
+  case Triple::Glulx:
   case Triple::GOFF:
   case Triple::XCOFF:
     report_fatal_error(

@@ -25,6 +25,7 @@
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
+#include "llvm/MC/MCSectionGlulx.h"
 #include "llvm/MC/MCSectionGOFF.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCSectionWasm.h"
@@ -33,6 +34,7 @@
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCSymbolCOFF.h"
 #include "llvm/MC/MCSymbolELF.h"
+#include "llvm/MC/MCSymbolGlulx.h"
 #include "llvm/MC/MCSymbolGOFF.h"
 #include "llvm/MC/MCSymbolMachO.h"
 #include "llvm/MC/MCSymbolWasm.h"
@@ -103,6 +105,9 @@ MCContext::MCContext(const Triple &TheTriple, const MCAsmInfo *mai,
   case Triple::GOFF:
     Env = IsGOFF;
     break;
+  case Triple::Glulx:
+    Env = IsGlulx;
+    break;
   case Triple::UnknownObjectFormat:
     report_fatal_error("Cannot initialize MC for unknown object file format.");
     break;
@@ -159,6 +164,7 @@ void MCContext::reset() {
 
   MachOUniquingMap.clear();
   ELFUniquingMap.clear();
+  GlulxUniquingMap.clear();
   GOFFUniquingMap.clear();
   COFFUniquingMap.clear();
   WasmUniquingMap.clear();
@@ -235,6 +241,8 @@ MCSymbol *MCContext::createSymbolImpl(const StringMapEntry<bool> *Name,
     return new (Name, *this) MCSymbolCOFF(Name, IsTemporary);
   case MCContext::IsELF:
     return new (Name, *this) MCSymbolELF(Name, IsTemporary);
+  case MCContext::IsGlulx:
+    return new (Name, *this) MCSymbolGlulx(Name, IsTemporary);
   case MCContext::IsGOFF:
     return new (Name, *this) MCSymbolGOFF(Name, IsTemporary);
   case MCContext::IsMachO:
@@ -794,6 +802,15 @@ MCSectionXCOFF *MCContext::getXCOFFSection(
     Begin->setFragment(F);
 
   return Result;
+}
+
+MCSectionGlulx *MCContext::getGlulxSection(StringRef Section, SectionKind Kind) {
+  // Do the lookup. If we don't have a hit, return a new section.
+  auto &GlulxSection = GlulxUniquingMap[Section.str()];
+  if (!GlulxSection)
+    GlulxSection = new (GlulxAllocator.Allocate()) MCSectionGlulx(Section, Kind);
+
+  return GlulxSection;
 }
 
 MCSubtargetInfo &MCContext::getSubtargetCopy(const MCSubtargetInfo &STI) {

@@ -782,6 +782,8 @@ AsmParser::AsmParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
   case MCContext::IsELF:
     PlatformParser.reset(createELFAsmParser());
     break;
+  case MCContext::IsGlulx:
+    report_fatal_error("GlulxAsmParser support not yet implemented");
   case MCContext::IsGOFF:
     report_fatal_error("GOFFAsmParser support not implemented yet");
   case MCContext::IsWasm:
