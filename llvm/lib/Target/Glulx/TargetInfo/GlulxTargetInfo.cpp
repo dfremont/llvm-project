@@ -8,12 +8,39 @@
 //===----------------------------------------------------------------------===//
 
 #include "TargetInfo/GlulxTargetInfo.h"
+#include "MCAsmStreamer/GlulxMCAsmStreamer.h"
 #include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
 
+class GlulxTarget : public Target {
+  MCStreamer *createAsmStreamer(MCContext &Ctx,
+                                std::unique_ptr<formatted_raw_ostream> OS,
+                                bool IsVerboseAsm, bool UseDwarfDirectory,
+                                MCInstPrinter *InstPrint,
+                                std::unique_ptr<MCCodeEmitter> &&CE,
+                                std::unique_ptr<MCAsmBackend> &&TAB,
+                                bool ShowInst) const override;
+};
+
+MCStreamer *GlulxTarget::createAsmStreamer(MCContext &Ctx,
+                              std::unique_ptr<formatted_raw_ostream> OS,
+                              bool IsVerboseAsm, bool UseDwarfDirectory,
+                              MCInstPrinter *InstPrint,
+                              std::unique_ptr<MCCodeEmitter> &&CE,
+                              std::unique_ptr<MCAsmBackend> &&TAB,
+                              bool ShowInst) const {
+  formatted_raw_ostream &OSRef = *OS;
+  MCStreamer *S = new GlulxMCAsmStreamer(Ctx, std::move(OS), IsVerboseAsm,
+                                         UseDwarfDirectory, InstPrint,
+                                         std::move(CE), std::move(TAB),
+                                         ShowInst);
+  createAsmTargetStreamer(*S, OSRef, InstPrint, IsVerboseAsm);
+  return S;
+}
+
 Target &llvm::getTheGlulxTarget() {
-  static Target TheGlulxTarget;
+  static GlulxTarget TheGlulxTarget;
   return TheGlulxTarget;
 }
 

@@ -41,6 +41,24 @@ void GlulxDAGToDAGISel::Select(SDNode *Node) {
   default: break;
   }
 
-  // Select the default instruction
+  // Use auto-generated selection from tablegen.
   SelectCode(Node);
+}
+
+// Used to select any value that can be an instruction operand.
+// (Which is in fact *any* value; but some require unwrapping.)
+bool GlulxDAGToDAGISel::SelectAny(SDValue In, SDValue &Out) {
+  SDLoc DL(In);
+  unsigned Opcode = In.getOpcode();
+  if (Opcode == GlulxISD::GA_WRAPPER) {
+    Out = In.getOperand(0);
+  } else if (auto *CN = dyn_cast<ConstantSDNode>(In)) {
+    Out = CurDAG->getTargetConstant(CN->getSExtValue(), DL, MVT::i32);
+  } else if (auto *FCN = dyn_cast<ConstantFPSDNode>(In)) {
+    Out = CurDAG->getTargetConstantFP(FCN->getValueAPF(), DL, MVT::f32);
+  } else {
+    Out = In;
+  }
+
+  return true;
 }

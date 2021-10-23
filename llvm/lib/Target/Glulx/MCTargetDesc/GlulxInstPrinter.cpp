@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This class prints an Glulx MCInst to a .s file.
+// This class prints a Glulx MCInst to a .s file.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,6 +15,7 @@
 #include "GlulxMachineFunctionInfo.h"
 #include "GlulxInstrInfo.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
@@ -57,11 +58,14 @@ void GlulxInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     else
       O << "$" << GlulxFunctionInfo::getWARegStackId(WAReg);
   } else if (Op.isImm()) {
-    O << Op.getImm();
+    int64_t Val = Op.getImm();
+    assert(isInt<32>(Val) && "Glulx integer immediate out of range");
+    O << Val;
   } else if (Op.isSFPImm()) {
-    O << APInt(32, Op.getSFPImm()).bitsToFloat();
+    O << static_cast<int32_t>(Op.getSFPImm());
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     Op.getExpr()->print(O, &MAI, true);
+    O << MAI.getLabelSuffix();
   }
 }

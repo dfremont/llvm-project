@@ -38,6 +38,20 @@ inline bool isArgument(unsigned Opc) {
   }
 }
 }
+
+// GlulxII - This namespace holds all of the target-specific flags that
+// instruction info tracks.
+namespace GlulxII {
+// Target Operand Flag enum.
+enum TOF {
+  //===------------------------------------------------------------------===//
+  // Glulx-specific MachineOperand flags.
+  MO_NO_FLAG,
+
+  // MO_DEREFERENCE - Represents load/store from a global address operand.
+  MO_DEREFERENCE,
+};
+} // namespace GlulxII
 }
 
 #endif // end LLVM_LIB_TARGET_Glulx_MCTARGETDESC_GlulxMCTARGETDESC_H

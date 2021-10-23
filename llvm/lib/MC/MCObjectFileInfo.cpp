@@ -513,6 +513,7 @@ void MCObjectFileInfo::initGOFFMCObjectFileInfo(const Triple &T) {
 
 void MCObjectFileInfo::initGlulxMCObjectFileInfo(const Triple &T) {
   TextSection = Ctx->getGlulxSection("; text section begins", SectionKind::getText());
+  DataSection = Ctx->getGlulxSection("!ram", SectionKind::getData());
   BSSSection = Ctx->getGlulxSection("!bss", SectionKind::getBSS());
 }
 

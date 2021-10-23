@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-class GlulxInst<int sz, string opcodestr, string argstr,
-                dag outs, dag ins, list<dag> pattern>
+class GlulxInst<int opc, string opcodestr, string argstr,
+                dag outs, dag ins, list<dag> pattern = []>
     : Instruction {
   field bits<32> Inst;
   // SoftFail is a field the disassembler can use to provide a way for
@@ -16,9 +16,9 @@ class GlulxInst<int sz, string opcodestr, string argstr,
   // mainly used for ARM, but Tablegen expects this field to exist or it fails
   // to build the decode table.
   field bits<32> SoftFail = 0;
-  let Size = sz;
+  let Size = !if(!le(opc, 255), 1, 2);
 
-  bits<16> Opcode = 0;
+  bits<16> Opcode = opc;
 
   let Inst{15-0} = Opcode;
 
@@ -35,9 +35,9 @@ class GlulxInst<int sz, string opcodestr, string argstr,
 }
 
 // Pseudo instructions
-class Pseudo<dag outs, dag ins, list<dag> pattern, string opcodestr = "",
+class Pseudo<dag outs, dag ins, list<dag> pattern = [], string opcodestr = "",
              string argstr = "">
-    : GlulxInst<1, opcodestr, argstr, outs, ins, pattern>,
+    : GlulxInst<0, opcodestr, argstr, outs, ins, pattern>,
       Sched<[]> {
   let isPseudo = 1;
   let isCodeGenOnly = 1;
@@ -45,12 +45,12 @@ class Pseudo<dag outs, dag ins, list<dag> pattern, string opcodestr = "",
 
 class GlulxInst1<bits<8> opcode, string opcodestr, string argstr,
                  dag outs, dag ins, list<dag> pattern = []>
-    : GlulxInst<1, opcodestr, argstr, outs, ins, pattern> {
+    : GlulxInst<opcode, opcodestr, argstr, outs, ins, pattern> {
     let Opcode{7-0} = opcode;
 }
 
 class GlulxInst2<bits<16> opcode, string opcodestr, string argstr,
                  dag outs, dag ins, list<dag> pattern = []>
-    : GlulxInst<2, opcodestr, argstr, outs, ins, pattern> {
-    let Opcode = opcode;
+    : GlulxInst<opcode, opcodestr, argstr, outs, ins, pattern> {
+
 }

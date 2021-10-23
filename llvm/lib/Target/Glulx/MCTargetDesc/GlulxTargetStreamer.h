@@ -23,14 +23,12 @@ public:
 
 // This part is for ascii assembly output
 class GlulxTargetAsmStreamer : public GlulxTargetStreamer {
-  formatted_raw_ostream &OS;
-
 public:
   GlulxTargetAsmStreamer(MCStreamer &S, formatted_raw_ostream &OS);
 
-  void emitLabel(MCSymbol *Symbol) override;
   void changeSection(const MCSection *CurSection, MCSection *Section,
                      const MCExpr *SubSection, raw_ostream &OS) override;
+  void emitValue(const MCExpr *Value) override;
 };
 
 }

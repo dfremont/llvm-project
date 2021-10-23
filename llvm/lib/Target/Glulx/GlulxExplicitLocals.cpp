@@ -68,14 +68,20 @@ static void checkFrameBase(GlulxFunctionInfo &MFI, unsigned Local,
 /// Return a local id number for the given register, assigning it a new one
 /// if it doesn't yet have one.
 static unsigned getLocalId(DenseMap<unsigned, unsigned> &Reg2Local,
+                           BitVector &LocalUsed,
                            GlulxFunctionInfo &MFI, unsigned &CurLocal,
                            unsigned Reg) {
-  auto P = Reg2Local.insert(std::make_pair(Reg, CurLocal));
-  if (P.second) {
-    checkFrameBase(MFI, CurLocal, Reg);
+  auto IT = Reg2Local.find(Reg);
+  if (IT != Reg2Local.end())
+    return IT->second;
+
+  while (LocalUsed[CurLocal])
     ++CurLocal;
-  }
-  return P.first->second;
+
+  Reg2Local[Reg] = CurLocal;
+  checkFrameBase(MFI, CurLocal, Reg);
+  LocalUsed[CurLocal] = true;
+  return CurLocal++;
 }
 
 bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
@@ -86,8 +92,20 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   GlulxFunctionInfo &MFI = *MF.getInfo<GlulxFunctionInfo>();
 
-  // Map non-stackified virtual registers to their local ids.
+  // Ensure there are enough vregs to receive all function arguments.
+  // (this doesn't always hold if some arguments are unused)
+  const Function &F = MF.getFunction();
+  unsigned ArgCount = F.arg_size() + F.isVarArg();
+  while (MRI.getNumVirtRegs() < ArgCount)
+    MRI.createVirtualRegister(&Glulx::GPRRegClass);
+
+  // Create extra virtual register to use as local for SP, if needed.
+  if (!MRI.use_empty(Glulx::VRFrame))
+    MRI.createVirtualRegister(&Glulx::GPRRegClass);
+
+  // Map virtual registers (and SP) to their local ids.
   DenseMap<unsigned, unsigned> Reg2Local;
+  BitVector LocalUsed(MRI.getNumVirtRegs());
 
   // Handle ARGUMENTS first to ensure that they get the designated numbers.
   for (MachineBasicBlock::iterator I = MF.begin()->begin(),
@@ -99,7 +117,9 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
     Register Reg = MI.getOperand(0).getReg();
     assert(!MFI.isVRegStackified(Reg));
     auto Local = static_cast<unsigned>(MI.getOperand(1).getImm());
+    assert(Local < MRI.getNumVirtRegs() && "fewer vregs than arguments");
     Reg2Local[Reg] = Local;
+    LocalUsed[Local] = true;
     checkFrameBase(MFI, Local, Reg);
 
 //    // Update debug value to point to the local before removing.
@@ -108,13 +128,10 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
     MI.eraseFromParent();
   }
 
-  // Start assigning local numbers after the last parameter and after any
-  // already-assigned locals.
-  unsigned CurLocal = static_cast<unsigned>(MFI.getParams().size());
-  CurLocal += static_cast<unsigned>(MFI.getLocals().size());
+  unsigned CurLocal = 0;
 
-  // Precompute the set of registers that are unused, so that we can insert
-  // drops to their defs.
+  // Precompute the set of registers that are unused, so that we can change
+  // their defs to use the discard operand mode.
   BitVector UseEmpty(MRI.getNumVirtRegs());
   for (unsigned I = 0, E = MRI.getNumVirtRegs(); I < E; ++I)
     UseEmpty[I] = MRI.use_empty(Register::index2VirtReg(I));
@@ -134,11 +151,16 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
       }
 
       for (auto &Def : MI.defs()) {
+        if (!Def.isReg())
+          continue;   // could be a symbol because of load/store inlining
         Register OldReg = Def.getReg();
-        if (UseEmpty[Register::virtReg2Index(OldReg)]) {
+        if (Register::isVirtualRegister(OldReg)
+            && UseEmpty[Register::virtReg2Index(OldReg)]) {
           Def.setReg(0);
         } else {
-          unsigned LocalId = getLocalId(Reg2Local, MFI, CurLocal, OldReg);
+          unsigned LocalId = getLocalId(Reg2Local, LocalUsed,
+                                        MFI, CurLocal, OldReg);
+          assert(LocalId < MRI.getNumVirtRegs() && "vreg assignment broken");
           Def.setReg(INT32_MIN | LocalId);
         }
       }
@@ -147,7 +169,8 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
         if (!MO.isReg())
           continue;
         Register OldReg = MO.getReg();
-        unsigned LocalId = getLocalId(Reg2Local, MFI, CurLocal, OldReg);
+        unsigned LocalId = getLocalId(Reg2Local, LocalUsed,
+                                      MFI, CurLocal, OldReg);
         MO.setReg(INT32_MIN | LocalId);
       }
     }
@@ -159,7 +182,7 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
   auto MBB = MF.begin();
   DebugLoc DL;
   BuildMI(*MBB, MBB->begin(), DL, TII->get(Glulx::MAKE_LFUNC))
-      .addImm(CurLocal);  // total number of locals used
+      .addImm(std::max(CurLocal, ArgCount));  // total number of locals used
 
   return true;
 }

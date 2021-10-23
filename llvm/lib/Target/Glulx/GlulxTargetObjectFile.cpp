@@ -24,8 +24,8 @@ MCSection *GlulxTargetObjectFile::getExplicitSectionGlobal(
 
 MCSection *GlulxTargetObjectFile::SelectSectionForGlobal(
     const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
-  if (Kind.isBSS() || Kind.isCommon())
-    return getContext().getObjectFileInfo()->getBSSSection();
+  if (Kind.isText())
+    return getContext().getObjectFileInfo()->getTextSection();
 
-  return getContext().getObjectFileInfo()->getTextSection();
+  return getContext().getObjectFileInfo()->getDataSection();
 }

@@ -26,12 +26,15 @@ public:
 
   // Pass Name
   StringRef getPassName() const override {
-    return "CPU0 DAG->DAG Pattern Instruction Selection";
+    return "Glulx DAG->DAG Pattern Instruction Selection";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   void Select(SDNode *Node) override;
+
+  // ComplexPatterns
+  bool SelectAny(SDValue In, SDValue &Out);
 
 #include "GlulxGenDAGISel.inc"
 

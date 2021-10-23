@@ -14,14 +14,15 @@ tablegen(LLVM GlulxGenMCPseudoLowering.inc -gen-pseudo-lowering)
 # GlulxCommonTableGen must be defined
 add_public_tablegen_target(GlulxCommonTableGen)
 
-# GlulxCodeGen should match with LLVMBuild.txt GlulxCodeGen
 add_llvm_target(GlulxCodeGen
   GlulxExplicitLocals.cpp
+  GlulxFoldStores.cpp
   GlulxMachineFunctionInfo.cpp
   GlulxOptimizeLiveIntervals.cpp
   GlulxPrepareForLiveIntervals.cpp
   GlulxRegColoring.cpp
   GlulxArgumentMove.cpp
+  GlulxUnsignedToSignedDivision.cpp
   GlulxAsmPrinter.cpp
   GlulxFrameLowering.cpp
   GlulxInstrInfo.cpp
@@ -29,26 +30,32 @@ add_llvm_target(GlulxCodeGen
   GlulxRegisterInfo.cpp
   GlulxSubtarget.cpp
   GlulxTargetObjectFile.cpp
+  GlulxSelectionDAGInfo.cpp
   GlulxISelDAGToDAG.cpp
   GlulxTargetMachine.cpp
 
-        LINK_COMPONENTS
-        Analysis
-        AsmPrinter
-        Core
-        CodeGen
-        MC
-        GlulxDesc
-        GlulxInfo
-        SelectionDAG
-        Support
-        Target
-        GlobalISel
+  DEPENDS
+  intrinsics_gen
+
+  LINK_COMPONENTS
+  Analysis
+  AsmPrinter
+  BinaryFormat
+  CodeGen
+  Core
+  MC
+  GlulxDesc
+  GlulxInfo
+  Scalar
+  SelectionDAG
+  Support
+  Target
+  TransformUtils
 
   ADD_TO_COMPONENT
   Glulx
 )
 
-# Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt
 add_subdirectory(TargetInfo)
+add_subdirectory(MCAsmStreamer)
 add_subdirectory(MCTargetDesc)

@@ -36,6 +36,11 @@ enum NodeType {
   PUSH,
   GA_WRAPPER,
   SELECT_CC,
+  MEMCPY,
+  MEMCLR,
+  JISNAN,
+  JORDERED,
+  BR_CC_FP,
 
   ARGUMENT,
 };
@@ -52,13 +57,22 @@ public:
 
   bool isFPImmLegal(const APFloat &, EVT,
                     bool ForCodeSize = false) const override { return true; }
+  bool isFsqrtCheap(SDValue X, SelectionDAG &DAG) const override {
+    return true;
+  }
   bool convertSelectOfConstantsToMath(EVT VT) const override { return true; }
+  bool isSelectSupported(SelectSupportKind kind) const override {
+    return false;   // eliminate select when possible since we don't have it
+  }
   bool isLegalStoreImmediate(int64_t Value) const override {
     return isInt<32>(Value);
   }
   bool isOffsetFoldingLegal(const GlobalAddressSDNode *GA) const override {
     return false;
   }
+  bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM,
+                             Type *Ty, unsigned AddrSpace,
+                             Instruction *I = nullptr) const override;
 
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
   void ReplaceNodeResults(SDNode *N,
@@ -75,9 +89,14 @@ protected:
 private:
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerCopyToReg(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
 
   using RegsToPassVector = SmallVector<std::pair<unsigned, SDValue>, 8>;
 

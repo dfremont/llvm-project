@@ -11,14 +11,28 @@
 //===----------------------------------------------------------------------===//
 
 #include "Glulx.h"
+#include "clang/Basic/Builtins.h"
 #include "clang/Basic/MacroBuilder.h"
-#include "llvm/ADT/StringSwitch.h"
+#include "clang/Basic/TargetBuiltins.h"
 
 using namespace clang;
 using namespace clang::targets;
+
+const Builtin::Info GlulxTargetInfo::BuiltinInfo[] = {
+#define BUILTIN(ID, TYPE, ATTRS)                                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER)                                    \
+  {#ID, TYPE, ATTRS, HEADER, ALL_LANGUAGES, nullptr},
+#include "clang/Basic/BuiltinsGlulx.def"
+};
 
 void GlulxTargetInfo::getTargetDefines(const LangOptions &Opts,
                                        MacroBuilder &Builder) const {
   // Define the __GLULX__ macro when building for this target
   Builder.defineMacro("__GLULX__");
+}
+
+ArrayRef<Builtin::Info> GlulxTargetInfo::getTargetBuiltins() const {
+  return llvm::makeArrayRef(BuiltinInfo, clang::Glulx::LastTSBuiltin -
+                                             Builtin::FirstTSBuiltin);
 }

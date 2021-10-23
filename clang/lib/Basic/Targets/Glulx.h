@@ -22,7 +22,7 @@ namespace clang {
 namespace targets {
 
 class LLVM_LIBRARY_VISIBILITY GlulxTargetInfo : public TargetInfo {
-  static const char *const GCCRegNames[];
+  static const Builtin::Info BuiltinInfo[];
 
 public:
   GlulxTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
@@ -45,14 +45,14 @@ public:
     );
     TLSSupported = false;
     VLASupported = false;
+    PointerAlign = 8; IntAlign = 8; LongAlign = 8; FloatAlign = 8;
     LongLongWidth = 32; LongLongAlign = 8;
-    SuitableAlign = 32;
-    DefaultAlignForAttributeAligned = 32;
-    FloatAlign = 8;
+    SuitableAlign = 8;
+    DefaultAlignForAttributeAligned = 8;
     DoubleWidth = 32; DoubleAlign = 8;
-    IntPtrType = SignedInt;
-    PtrDiffType = SignedInt;
-    SizeType = UnsignedInt;
+    DoubleFormat = &llvm::APFloat::IEEEsingle();
+    LongDoubleWidth = 32; LongDoubleAlign = 8;
+    LongDoubleFormat = &llvm::APFloat::IEEEsingle();
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -68,9 +68,7 @@ public:
     return TargetInfo::VoidPtrBuiltinVaList;
   }
 
-  ArrayRef<Builtin::Info> getTargetBuiltins() const override {
-    return None;
-  }
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
 
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override {

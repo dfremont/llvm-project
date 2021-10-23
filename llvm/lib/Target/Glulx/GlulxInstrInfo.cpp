@@ -19,7 +19,6 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 
@@ -28,10 +27,28 @@ using namespace llvm;
 #define GET_INSTRINFO_CTOR_DTOR
 #include "GlulxGenInstrInfo.inc"
 
+// defines Glulx::getNamedOperandIdx
+#define GET_INSTRINFO_NAMED_OPS
+#include "GlulxGenInstrInfo.inc"
+
 GlulxInstrInfo::GlulxInstrInfo(const GlulxSubtarget &STI)
     : GlulxGenInstrInfo(),
       Subtarget(STI)
 {
+}
+
+std::pair<unsigned, unsigned>
+GlulxInstrInfo::decomposeMachineOperandsTargetFlags(unsigned TF) const {
+  return std::make_pair(TF, 0u);
+}
+
+ArrayRef<std::pair<unsigned, const char *>>
+GlulxInstrInfo::getSerializableDirectMachineOperandTargetFlags() const {
+  using namespace GlulxII;
+  static const std::pair<unsigned, const char *> TargetFlags[] = {
+      {MO_DEREFERENCE, "glulx-deref"},
+      {MO_NO_FLAG, "glulx-nf"}};
+  return makeArrayRef(TargetFlags);
 }
 
 void GlulxInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
@@ -139,4 +156,79 @@ unsigned GlulxInstrInfo::removeBranch(MachineBasicBlock &MBB,
   }
 
   return Count;
+}
+
+MachineInstr *GlulxInstrInfo::foldMemoryOperandImpl(
+    MachineFunction &MF, MachineInstr &MI, ArrayRef<unsigned> Ops,
+    MachineBasicBlock::iterator InsertPt, MachineInstr &LoadMI,
+    LiveIntervals *LIS) const {
+  // We only handle folding of the copy instruction, for now.
+  unsigned LoadOpcode = LoadMI.getOpcode();
+  assert(LoadOpcode == Glulx::copy_mr);
+
+  // Some optimization passes assume COPY has only reg operands.
+  if (MI.getOpcode() == Glulx::COPY)
+    return nullptr;
+
+  // Build new instruction with folded-in operand(s).
+  MachineInstr *NewMI =
+      MF.CreateMachineInstr(get(MI.getOpcode()), MI.getDebugLoc(), true);
+  MachineInstrBuilder MIB(MF, NewMI);
+  for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+    MachineOperand &MO = MI.getOperand(i);
+    bool Found = false;
+    for (unsigned j = 0, f = Ops.size(); j != f; ++j) {
+      if (i == Ops[j]) {
+        assert(MO.isReg() && "Expected to fold into reg operand!");
+        auto &OldOp = LoadMI.getOperand(1);
+        OldOp.setTargetFlags(GlulxII::MO_DEREFERENCE);
+        MIB.add(OldOp);
+        Found = true;
+        break;
+      }
+    }
+    if (!Found)
+      MIB.add(MO);
+  }
+
+  // Insert the new instruction at the specified location.
+  MachineBasicBlock *MBB = InsertPt->getParent();
+  MBB->insert(InsertPt, NewMI);
+
+  return NewMI;
+}
+
+MachineInstr *GlulxInstrInfo::optimizeLoadInstr(MachineInstr &MI,
+                                                const MachineRegisterInfo *MRI,
+                                                Register &FoldAsLoadDefReg,
+                                                MachineInstr *&DefMI) const {
+  // Check whether we can move DefMI here.
+  DefMI = MRI->getVRegDef(FoldAsLoadDefReg);
+  assert(DefMI);
+  bool SawStore = false;  // intervening stores are checked in PeepholeOptimizer
+  if (!DefMI->isSafeToMove(nullptr, SawStore))
+    return nullptr;
+
+  // Collect information about virtual register operands of MI.
+  SmallVector<unsigned, 1> SrcOperandIds;
+  for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+    MachineOperand &MO = MI.getOperand(i);
+    if (!MO.isReg())
+      continue;
+    Register Reg = MO.getReg();
+    if (Reg != FoldAsLoadDefReg)
+      continue;
+    if (!MO.isDef())
+      SrcOperandIds.push_back(i);
+  }
+  if (SrcOperandIds.empty())
+    return nullptr;
+
+  // Check whether we can fold the def into SrcOperandId.
+  if (MachineInstr *FoldMI = foldMemoryOperand(MI, SrcOperandIds, *DefMI)) {
+    FoldAsLoadDefReg = 0;
+    return FoldMI;
+  }
+
+  return nullptr;
 }

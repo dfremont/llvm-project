@@ -21,11 +21,10 @@
 using namespace llvm;
 
 // hasFP - Return true if the specified function should have a dedicated frame
-// pointer register.  This is true if the function has variable sized allocas,
-// if it needs dynamic stack realignment, if frame pointer elimination is
-// disabled, or if the frame address is taken.
+// pointer register. Since we cannot take the address of anything on the Glulx
+// stack, we need a pointer into the heap for any nontrivial use of the stack.
 bool GlulxFrameLowering::hasFP(const MachineFunction &MF) const {
-  return false;
+  return true;
 }
 
 MachineBasicBlock::iterator GlulxFrameLowering::eliminateCallFramePseudoInstr(
@@ -37,22 +36,56 @@ MachineBasicBlock::iterator GlulxFrameLowering::eliminateCallFramePseudoInstr(
 
 void GlulxFrameLowering::emitPrologue(MachineFunction &MF,
                                      MachineBasicBlock &MBB) const {
+  auto &MFI = MF.getFrameInfo();
+  assert(MFI.getCalleeSavedInfo().empty() &&
+         "Glulx should not have callee-saved registers");
+
+  if (!MFI.hasStackObjects())
+    return;
+
+  uint64_t StackSize = MFI.getStackSize();
+
+  auto &ST = MF.getSubtarget<GlulxSubtarget>();
+  const auto *TII = ST.getInstrInfo();
+
+  auto InsertPt = MBB.begin();
+  while (InsertPt != MBB.end() &&
+         Glulx::isArgument(InsertPt->getOpcode()))
+    ++InsertPt;
+  DebugLoc DL;
+
+  unsigned SPReg = Glulx::VRFrame;
+  BuildMI(MBB, InsertPt, DL, TII->get(Glulx::MALLOC_i), SPReg)
+    .addImm(StackSize > 0 ? StackSize : 4);
 }
 
 void GlulxFrameLowering::emitEpilogue(MachineFunction &MF,
                                      MachineBasicBlock &MBB) const {
+  auto &MFI = MF.getFrameInfo();
+  if (!MFI.hasStackObjects())
+    return;
+
+  auto &ST = MF.getSubtarget<GlulxSubtarget>();
+  const auto *TII = ST.getInstrInfo();
+  auto InsertPt = MBB.getFirstTerminator();
+  DebugLoc DL;
+
+  if (InsertPt != MBB.end())
+    DL = InsertPt->getDebugLoc();
+
+  BuildMI(MBB, InsertPt, DL, TII->get(Glulx::MFREE_r))
+    .addReg(Glulx::VRFrame);
+}
+
+StackOffset
+GlulxFrameLowering::getFrameIndexReference(const MachineFunction &MF, int FI,
+                                           Register &FrameReg) const {
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  FrameReg = Glulx::VRFrame;
+  return StackOffset::getFixed(MFI.getObjectOffset(FI));
 }
 
 bool
 GlulxFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const {
   return true;
-}
-
-// This method is called immediately before PrologEpilogInserter scans the
-// physical registers used to determine what callee saved registers should be
-// spilled. This method is optional.
-void GlulxFrameLowering::determineCalleeSaves(MachineFunction &MF,
-                                              BitVector &SavedRegs,
-                                              RegScavenger *RS) const {
-  TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
 }

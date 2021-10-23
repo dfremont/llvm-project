@@ -8,19 +8,21 @@
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-//  Declarations that describe the RISC-W register file
+//  Declarations that describe the Glulx "register file"
 //===----------------------------------------------------------------------===//
 
 class GlulxReg<string n> : Register<n> {
     let Namespace = "Glulx";
 }
 
+// Special Register used as stack pointer
+def VRFrame  : GlulxReg<"%SP">;
+
 // The register allocation framework requires register classes have at least
 // one register, so we define a few for the integer / floating point register
 // classes since we otherwise don't need a physical register in those classes.
 // These are also used as "types" in the generated assembly matcher.
 def I32_0 : GlulxReg<"%i32.0">;
-def F32_0 : GlulxReg<"%f32.0">;
 
 // The incoming arguments "register". This is an opaque entity which serves to
 // order the ARGUMENT instructions that are emulating live-in registers and
@@ -34,7 +36,4 @@ def ARGUMENTS : GlulxReg<"ARGUMENTS">;
 class GlulxRegClass<list<ValueType> regTypes, int alignment, dag regList>
      : RegisterClass<"Glulx", regTypes, alignment, regList>;
 
-def I32 : GlulxRegClass<[i32], 8, (add I32_0)>;
-def F32 : GlulxRegClass<[f32], 8, (add F32_0)>;
-
-def R32 : GlulxRegClass<[i32, f32], 8, (add I32_0, F32_0)>;
+def GPR : GlulxRegClass<[i32, f32], 8, (add I32_0, VRFrame)>;

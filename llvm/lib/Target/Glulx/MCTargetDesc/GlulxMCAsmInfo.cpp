@@ -23,18 +23,20 @@ GlulxMCAsmInfo::GlulxMCAsmInfo(const Triple &TheTriple) {
 
   AlignmentIsInBytes          = false;
   Data8bitsDirective          = "\t!datab\t";
+  ByteListDirective           = "\t!datab\t";   // need hacked glasm to support octal
   Data16bitsDirective         = "\t!datas\t";
   Data32bitsDirective         = "\t!data\t";
+  AsciiDirective              = "\t!datab\t";   // ditto for C escape sequences
+  AscizDirective              = nullptr;
 
   PrivateGlobalPrefix         = "_L";
   PrivateLabelPrefix          = "_L";
 
-  // to prevent subsequent comments breaking glasm
-  LabelSuffix                 = "\n";
+  LabelSuffix                 = "_";    // for disambiguation with opcode names
 
   CommentString               = ";";
 
   GlobalDirective             = "\t; global ";
   HasDotTypeDotSizeDirective  = false;
-  ZeroDirective               = "\t!allot ";
+  ZeroDirective               = "\t!zero ";   // needs hacked glasm
 }

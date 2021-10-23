@@ -17,6 +17,7 @@
 #include "GlulxFrameLowering.h"
 #include "GlulxISelLowering.h"
 #include "GlulxInstrInfo.h"
+#include "GlulxSelectionDAGInfo.h"
 #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -28,7 +29,7 @@
 namespace llvm {
 class GlulxSubtarget : public GlulxGenSubtargetInfo {
 protected:
-  SelectionDAGTargetInfo TSInfo;
+  GlulxSelectionDAGInfo TSInfo;
   GlulxInstrInfo InstrInfo;
   GlulxFrameLowering FrameLowering;
   GlulxTargetLowering TLInfo;
@@ -71,12 +72,6 @@ public:
   }
 
   bool enableMachineScheduler() const override { return false; }
-
-  /// getMaxInlineSizeThreshold - Returns the maximum memset / memcpy size
-  /// that still makes it profitable to inline the call.
-  unsigned getMaxInlineSizeThreshold() const {
-    return 64;
-  }
 };
 }
 

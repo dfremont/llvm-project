@@ -336,6 +336,7 @@ private:
 
 public:
   Target() = default;
+  virtual ~Target() = default;
 
   /// @name Target Information
   /// @{
@@ -584,7 +585,7 @@ public:
     return S;
   }
 
-  MCStreamer *createAsmStreamer(MCContext &Ctx,
+  virtual MCStreamer *createAsmStreamer(MCContext &Ctx,
                                 std::unique_ptr<formatted_raw_ostream> OS,
                                 bool IsVerboseAsm, bool UseDwarfDirectory,
                                 MCInstPrinter *InstPrint,

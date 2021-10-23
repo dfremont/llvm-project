@@ -29,7 +29,9 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGlulxTarget() {
 
   // Register backend passes
   auto &PR = *PassRegistry::getPassRegistry();
+  initializeUnsignedToSignedDivisionPass(PR);
   initializeGlulxArgumentMovePass(PR);
+  initializeGlulxFoldStoresPass(PR);
   initializeGlulxPrepareForLiveIntervalsPass(PR);
   initializeGlulxOptimizeLiveIntervalsPass(PR);
   initializeGlulxRegColoringPass(PR);
@@ -119,6 +121,7 @@ public:
   FunctionPass *createTargetRegisterAllocator(bool) override;
   void addIRPasses() override;
   bool addInstSelector() override;
+  void addPreRegAlloc() override;
   void addPostRegAlloc() override;
   bool addGCPasses() override { return false; }
   void addPreEmitPass() override;
@@ -140,26 +143,14 @@ FunctionPass *GlulxPassConfig::createTargetRegisterAllocator(bool) {
 }
 
 void GlulxPassConfig::addIRPasses() {
-//  // Add signatures to prototype-less function declarations
-//  addPass(createWebAssemblyAddMissingPrototypes());
-
-//  // Fix function bitcasts, as WebAssembly requires caller and callee signatures
-//  // to match.
-//  addPass(createWebAssemblyFixFunctionBitcasts());
-
-//  // Optimize "returned" function attributes.
-//  if (getOptLevel() != CodeGenOpt::None)
-//    addPass(llvm::createWebAssemblyOptimizeReturned());
-
   addPass(createLowerInvokePass());
   // The lower invoke pass may create unreachable code. Remove it in order not
   // to process dead blocks in setjmp/longjmp handling.
   addPass(createUnreachableBlockEliminationPass());
 
-  // Expand indirectbr instructions to switches.
-  addPass(createIndirectBrExpandPass());
-
   TargetPassConfig::addIRPasses();
+
+  addPass(createUnsignedToSignedDivisionPass());
 }
 
 // Install an instruction selector pass using
@@ -173,6 +164,13 @@ bool GlulxPassConfig::addInstSelector() {
   addPass(createGlulxArgumentMove());
 
   return false;
+}
+
+void GlulxPassConfig::addPreRegAlloc() {
+  if (getOptLevel() != CodeGenOpt::None) {
+    // Fold stores to constant addresses into indirect store operands.
+    addPass(createGlulxFoldStores());
+  }
 }
 
 void GlulxPassConfig::addPostRegAlloc() {
@@ -193,13 +191,10 @@ void GlulxPassConfig::addPostRegAlloc() {
   TargetPassConfig::addPostRegAlloc();
 }
 
-// Implemented by targets that want to run passes immediately before
-// machine code is emitted. return true if -print-machineinstrs should
-// print out the code after the passes.
 void GlulxPassConfig::addPreEmitPass() {
   TargetPassConfig::addPreEmitPass();
 
-  // Preparations and optimizations related to register stackification.
+  // Preparations and optimizations related to register coloring.
   if (getOptLevel() != CodeGenOpt::None) {
     // LiveIntervals isn't commonly run this late. Re-establish preconditions.
     addPass(createGlulxPrepareForLiveIntervals());
@@ -208,8 +203,6 @@ void GlulxPassConfig::addPreEmitPass() {
     addPass(createGlulxOptimizeLiveIntervals());
 
     // Run the register coloring pass to reduce the total number of registers.
-    // This runs after stackification so that it doesn't consider registers
-    // that become stackified.
     addPass(createGlulxRegColoring());
   }
 

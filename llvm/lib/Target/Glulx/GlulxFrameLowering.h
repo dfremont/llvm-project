@@ -25,7 +25,7 @@ protected:
 
 public:
   explicit GlulxFrameLowering(const GlulxSubtarget &STI)
-    : TargetFrameLowering(TargetFrameLowering::StackGrowsDown,
+    : TargetFrameLowering(TargetFrameLowering::StackGrowsUp,
                           /*StackAlignment*/Align(4),
                           /*LocalAreaOffset*/0,
                           /*TransAl*/Align(4)),
@@ -33,14 +33,13 @@ public:
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
+  StackOffset getFrameIndexReference(const MachineFunction &MF, int FI,
+                                     Register &FrameReg) const override;
 
   bool hasReservedCallFrame(const MachineFunction &MF) const override;
   MachineBasicBlock::iterator
   eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator I) const override;
-
-  void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
-                            RegScavenger *RS) const override;
 
   bool hasFP(const MachineFunction &MF) const override;
 };

@@ -21,8 +21,14 @@
 namespace llvm {
   class FunctionPass;
 
+  // IR passes.
+  FunctionPass *createUnsignedToSignedDivisionPass();
+
   // ISel and immediate followup passes.
   FunctionPass *createGlulxArgumentMove();
+
+  // Pre-register allocation passes.
+  FunctionPass *createGlulxFoldStores();
 
   // Late passes.
   FunctionPass *createGlulxPrepareForLiveIntervals();
@@ -31,7 +37,9 @@ namespace llvm {
   FunctionPass *createGlulxExplicitLocals();
 
   // PassRegistry initialization declarations.
+  void initializeUnsignedToSignedDivisionPass(PassRegistry &);
   void initializeGlulxArgumentMovePass(PassRegistry &);
+  void initializeGlulxFoldStoresPass(PassRegistry &);
   void initializeGlulxPrepareForLiveIntervalsPass(PassRegistry &);
   void initializeGlulxOptimizeLiveIntervalsPass(PassRegistry &);
   void initializeGlulxRegColoringPass(PassRegistry &);

@@ -22,11 +22,25 @@
 #define GET_INSTRINFO_HEADER
 #include "GlulxGenInstrInfo.inc"
 
+#define GET_INSTRINFO_OPERAND_ENUM
+#include "GlulxGenInstrInfo.inc"
+
 namespace llvm {
+
+namespace Glulx {
+
+int16_t getNamedOperandIdx(uint16_t Opcode, uint16_t NamedIndex);
+
+} // Glulx
 
 class GlulxInstrInfo : public GlulxGenInstrInfo {
 public:
   explicit GlulxInstrInfo(const GlulxSubtarget &STI);
+
+  std::pair<unsigned, unsigned>
+  decomposeMachineOperandsTargetFlags(unsigned TF) const override;
+  ArrayRef<std::pair<unsigned, const char *>>
+  getSerializableDirectMachineOperandTargetFlags() const override;
 
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                    const DebugLoc &DL, MCRegister DstReg, MCRegister SrcReg,
@@ -41,6 +55,15 @@ public:
                         MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
                         const DebugLoc &DL,
                         int *BytesAdded = nullptr) const override;
+
+  MachineInstr *foldMemoryOperandImpl(
+      MachineFunction &MF, MachineInstr &MI, ArrayRef<unsigned> Ops,
+      MachineBasicBlock::iterator InsertPt, MachineInstr &LoadMI,
+      LiveIntervals *LIS = nullptr) const override;
+  MachineInstr *optimizeLoadInstr(MachineInstr &MI,
+                                  const MachineRegisterInfo *MRI,
+                                  Register &FoldAsLoadDefReg,
+                                  MachineInstr *&DefMI) const override;
 
 protected:
   const GlulxSubtarget &Subtarget;

@@ -38,17 +38,12 @@ GlulxTargetLowering::GlulxTargetLowering(const TargetMachine &TM,
     : TargetLowering(TM), Subtarget(STI)
 {
   // Set up the register classes
-  addRegisterClass(MVT::i32, &Glulx::I32RegClass);
-  addRegisterClass(MVT::f32, &Glulx::F32RegClass);
-
-  addRegisterClass(MVT::i32, &Glulx::R32RegClass);
-  addRegisterClass(MVT::f32, &Glulx::R32RegClass);
+  addRegisterClass(MVT::i32, &Glulx::GPRRegClass);
+  addRegisterClass(MVT::f32, &Glulx::GPRRegClass);
 
   // Must, computeRegisterProperties - Once all of the register classes are
   // added, this allows us to compute derived properties we expose.
   computeRegisterProperties(Subtarget.getRegisterInfo());
-
-  //setStackPointerRegisterToSaveRestore(Glulx::X0);
 
   // Set scheduling preference.
   setSchedulingPreference(Sched::RegPressure);
@@ -59,6 +54,10 @@ GlulxTargetLowering::GlulxTargetLowering(const TargetMachine &TM,
 
   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
   setOperationAction(ISD::BlockAddress,  MVT::i32, Custom);
+  setOperationAction(ISD::ExternalSymbol, MVT::i32, Custom);
+  setOperationAction(ISD::FrameIndex, MVT::i32, Custom);
+
+  setOperationAction(ISD::CopyToReg, MVT::Other, Custom);
 
   setOperationAction(ISD::ConstantFP,  MVT::f32, Legal);
 
@@ -70,24 +69,24 @@ GlulxTargetLowering::GlulxTargetLowering(const TargetMachine &TM,
       ISD::SMUL_LOHI, ISD::UMUL_LOHI, ISD::SDIVREM, ISD::UDIVREM,
       ISD::MULHU, ISD::MULHS,
       ISD::SHL_PARTS, ISD::SRA_PARTS, ISD::SRL_PARTS,
-      ISD::UINT_TO_FP,
+      ISD::UINT_TO_FP, ISD::FP_TO_UINT,
   };
   for (auto Op : BadIntOps)
     setOperationAction(Op, MVT::i32, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::i32, MVT::i1, Promote);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i1, Promote);
+  setLoadExtAction(ISD::ZEXTLOAD, MVT::i32, MVT::i1, Promote);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i8, Expand);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i16, Expand);
 
   // Expand FP operations not natively supported by Glulx.
   auto BadFloatOps = {
+      ISD::FNEG, ISD::FABS, ISD::FSQRT, ISD::FSIN, ISD::FCOS,
       ISD::FSINCOS, ISD::FMA, ISD::FP16_TO_FP, ISD::FP_TO_FP16,
-      ISD::FP_TO_UINT, ISD::FNEARBYINT,
+      ISD::FNEARBYINT,
   };
   for (auto Op : BadFloatOps)
       setOperationAction(Op, MVT::f32, Expand);
-  auto BadFloatComps = {
-      ISD::SETONE, ISD::SETO, ISD::SETUO, ISD::SETUEQ, ISD::SETUGT,
-      ISD::SETUGE, ISD::SETULT, ISD::SETULE,
-  };
-  for (auto CondCode : BadFloatComps)
-      setCondCodeAction(CondCode, MVT::f32, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
   setTruncStoreAction(MVT::f32, MVT::f16, Expand);
   // Legalize FP operations which expand by default but are supported by Glulx.
@@ -97,28 +96,47 @@ GlulxTargetLowering::GlulxTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::FLOG, MVT::f32, Legal);
   // Custom handle some FP operations which have variants supported by Glulx.
   setOperationAction(ISD::FP_TO_SINT_SAT, MVT::f32, Custom);
-  // TODO improve handling of SETUO with @jisnan
 
   // Expand boolean operations not natively supported by Glulx.
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
 
-  // Dynamic stack allocation: use the default expansion.
-  setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
-  setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
-  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
+  // Dynamic stack allocation is not allowed.
+  setOperationAction(ISD::STACKSAVE, MVT::Other, Custom);
+  setOperationAction(ISD::STACKRESTORE, MVT::Other, Custom);
+  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Custom);
 
-  // Expand/custom handle condition code-based branches/selects.
+  // Convert select/setcc to select_cc, then custom handle that.
   for (auto T : {MVT::i32, MVT::f32}) {
-    setOperationAction(ISD::BR_CC, T, Expand);
+    setOperationAction(ISD::SELECT, T, Expand);
+    setOperationAction(ISD::SETCC, T, Expand);
     setOperationAction(ISD::SELECT_CC, T, Custom);
   }
+  // LegalizeDAG apparently can't legalize our missing BR_CC forms for floating-
+  // point comparisons, so we have to legalize them ourselves.
+  setOperationAction(ISD::BR_CC, MVT::f32, Custom);
 
   // Expand jump tables.
+  setOperationAction(ISD::JumpTable, MVT::Other, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
+  setOperationAction(ISD::BRIND, MVT::Other, Expand);
+
+  // Take the default expansion for va_arg, va_copy, and va_end. There is no
+  // default action for va_start, so we do that custom.
+  setOperationAction(ISD::VASTART, MVT::Other, Custom);
+  setOperationAction(ISD::VAARG, MVT::Other, Expand);
+  setOperationAction(ISD::VACOPY, MVT::Other, Expand);
+  setOperationAction(ISD::VAEND, MVT::Other, Expand);
 
   // Legalize traps (we'll emit @quit / @debugtrap).
   setOperationAction(ISD::TRAP, MVT::Other, Legal);
   setOperationAction(ISD::DEBUGTRAP, MVT::Other, Legal);
+
+  // Always use the mcopy instruction for memcpy/memmove.
+  MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 0;
+  MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 0;
+
+  // Attempt to minimize selects since we don't have them.
+  PredictableSelectIsExpensive = true;
 }
 
 const char *GlulxTargetLowering::getTargetNodeName(unsigned Opcode) const {
@@ -131,8 +149,14 @@ const char *GlulxTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case GlulxISD::CALLFIII: return "GlulxISD::CALLFIII";
   case GlulxISD::Ret: return "GlulxISD::Ret";
   case GlulxISD::PUSH: return "GlulxISD::PUSH";
+  case GlulxISD::SELECT_CC: return "GlulxISD::SELECT_CC";
   case GlulxISD::GA_WRAPPER: return "GlulxISD::GA_WRAPPER";
   case GlulxISD::ARGUMENT: return "GlulxISD::ARGUMENT";
+  case GlulxISD::MEMCPY: return "GlulxISD::MEMCPY";
+  case GlulxISD::MEMCLR: return "GlulxISD::MEMCLR";
+  case GlulxISD::JISNAN: return "GlulxISD::JISNAN";
+  case GlulxISD::JORDERED: return "GlulxISD::JORDERED";
+  case GlulxISD::BR_CC_FP: return "GlulxISD::BR_CC_FP";
   default:            return NULL;
   }
 }
@@ -144,6 +168,15 @@ void GlulxTargetLowering::ReplaceNodeResults(SDNode *N,
   default:
     llvm_unreachable("Don't know how to custom expand this!");
   }
+}
+
+bool
+GlulxTargetLowering::isLegalAddressingMode(const DataLayout &DL,
+                                           const AddrMode &AM,
+                                           Type *Ty, unsigned AddrSpace,
+                                           Instruction *I) const {
+  // No indexed addressing modes in Glulx.
+  return !AM.BaseGV && !AM.BaseOffs && !AM.Scale;
 }
 
 //===----------------------------------------------------------------------===//
@@ -181,8 +214,6 @@ SDValue GlulxTargetLowering::LowerFormalArguments(
 {
   if (!callingConvSupported(CallConv))
     fail(DL, DAG, "unsupported CallingConv to LowerFormalArguments");
-  if (IsVarArg)
-    fail(DL, DAG, "Glulx does not yet support varargs calls");
 
   MachineFunction &MF = DAG.getMachineFunction();
   auto *MFI = MF.getInfo<GlulxFunctionInfo>();
@@ -193,13 +224,13 @@ SDValue GlulxTargetLowering::LowerFormalArguments(
 
   for (const ISD::InputArg &In : Ins) {
     if (In.Flags.isInAlloca())
-      fail(DL, DAG, "WebAssembly hasn't implemented inalloca arguments");
+      fail(DL, DAG, "Glulx hasn't implemented inalloca arguments");
     if (In.Flags.isNest())
-      fail(DL, DAG, "WebAssembly hasn't implemented nest arguments");
+      fail(DL, DAG, "Glulx hasn't implemented nest arguments");
     if (In.Flags.isInConsecutiveRegs())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs arguments");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs arguments");
     if (In.Flags.isInConsecutiveRegsLast())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs last arguments");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs last arguments");
     // Ignore In.getNonZeroOrigAlign() because all our arguments are passed in
     // registers.
     SDValue InVal;
@@ -215,6 +246,20 @@ SDValue GlulxTargetLowering::LowerFormalArguments(
     MFI->addParam(In.VT);
   }
 
+  // Varargs are copied into a buffer allocated by the caller, and a pointer to
+  // the buffer is passed as an argument.
+  if (IsVarArg) {
+    MVT PtrVT = getPointerTy(MF.getDataLayout());
+    Register VarargVreg =
+        MF.getRegInfo().createVirtualRegister(getRegClassFor(PtrVT));
+    MFI->setVarargBufferVreg(VarargVreg);
+    Chain = DAG.getCopyToReg(
+        Chain, DL, VarargVreg,
+        DAG.getNode(GlulxISD::ARGUMENT, DL, PtrVT,
+                    DAG.getTargetConstant(Ins.size(), DL, MVT::i32)));
+    MFI->addParam(PtrVT);
+  }
+
   // Record the number and types of arguments and results.
   SmallVector<MVT, 4> Params;
   SmallVector<MVT, 4> Results;
@@ -222,8 +267,6 @@ SDValue GlulxTargetLowering::LowerFormalArguments(
                       MF.getFunction(), DAG.getTarget(), Params, Results);
   for (MVT VT : Results)
     MFI->addResult(VT);
-  // TODO: Use signatures in WebAssemblyMachineFunctionInfo too and unify
-  // the param logic here with ComputeSignatureVTs
   assert(MFI->getParams().size() == Params.size() &&
          std::equal(MFI->getParams().begin(), MFI->getParams().end(),
                     Params.begin()));
@@ -263,9 +306,6 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   bool IsVarArg = CLI.IsVarArg;
   MachineFunction &MF = DAG.getMachineFunction();
   auto Layout = MF.getDataLayout();
-
-  if (IsVarArg)
-    fail(DL, DAG, "vararg calls are not yet supported");
 
   CallingConv::ID CallConv = CLI.CallConv;
   if (!callingConvSupported(CallConv))
@@ -325,64 +365,80 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   unsigned NumFixedArgs = 0;
   for (unsigned I = 0; I < Outs.size(); ++I) {
     const ISD::OutputArg &Out = Outs[I];
+    SDValue &OutVal = OutVals[I];
     if (Out.Flags.isNest())
-      fail(DL, DAG, "WebAssembly hasn't implemented nest arguments");
+      fail(DL, DAG, "Glulx hasn't implemented nest arguments");
     if (Out.Flags.isInAlloca())
-      fail(DL, DAG, "WebAssembly hasn't implemented inalloca arguments");
+      fail(DL, DAG, "Glulx hasn't implemented inalloca arguments");
     if (Out.Flags.isInConsecutiveRegs())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs arguments");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs arguments");
     if (Out.Flags.isInConsecutiveRegsLast())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs last arguments");
-    if (Out.Flags.isByVal())
-      fail(DL, DAG, "pass by value not supported");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs last arguments");
+    if (Out.Flags.isByVal() && Out.Flags.getByValSize() != 0) {
+      auto &MFI = MF.getFrameInfo();
+      int FI = MFI.CreateStackObject(Out.Flags.getByValSize(),
+                                     Out.Flags.getNonZeroByValAlign(),
+                                     /*isSS=*/false);
+      SDValue SizeNode =
+          DAG.getConstant(Out.Flags.getByValSize(), DL, MVT::i32);
+      SDValue FINode = DAG.getFrameIndex(FI, getPointerTy(Layout));
+      Chain = DAG.getMemcpy(
+          Chain, DL, FINode, OutVal, SizeNode, Out.Flags.getNonZeroByValAlign(),
+          /*isVolatile*/ false, /*AlwaysInline=*/false,
+          /*isTailCall*/ false, MachinePointerInfo(), MachinePointerInfo());
+      OutVal = FINode;
+    }
     // Count the number of fixed args *after* legalization.
     NumFixedArgs += Out.IsFixed;
   }
 
-//  if (IsVarArg) {
-//    // Outgoing non-fixed arguments are placed in a buffer. First
-//    // compute their offsets and the total amount of buffer space needed.
-//    for (unsigned I = NumFixedArgs; I < Outs.size(); ++I) {
-//      const ISD::OutputArg &Out = Outs[I];
-//      SDValue &Arg = OutVals[I];
-//      EVT VT = Arg.getValueType();
-//      assert(VT != MVT::iPTR && "Legalized args should be concrete");
-//      Type *Ty = VT.getTypeForEVT(*DAG.getContext());
-//      Align Alignment =
-//          std::max(Out.Flags.getNonZeroOrigAlign(), Layout.getABITypeAlign(Ty));
-//      unsigned Offset =
-//          CCInfo.AllocateStack(Layout.getTypeAllocSize(Ty), Alignment);
-//      CCInfo.addLoc(CCValAssign::getMem(ArgLocs.size(), VT.getSimpleVT(),
-//                                        Offset, VT.getSimpleVT(),
-//                                        CCValAssign::Full));
-//    }
-//  }
-//
-//  SDValue FINode;
-//  if (IsVarArg && NumBytes) {
-//    // For non-fixed arguments, next emit stores to store the argument values
-//    // to the stack buffer at the offsets computed above.
-//    int FI = MF.getFrameInfo().CreateStackObject(NumBytes,
-//                                                 Layout.getStackAlignment(),
-//                                                 /*isSS=*/false);
-//    unsigned ValNo = 0;
-//    SmallVector<SDValue, 8> Chains;
-//    for (SDValue Arg : drop_begin(OutVals, NumFixedArgs)) {
-//      assert(ArgLocs[ValNo].getValNo() == ValNo &&
-//             "ArgLocs should remain in order and only hold varargs args");
-//      unsigned Offset = ArgLocs[ValNo++].getLocMemOffset();
-//      FINode = DAG.getFrameIndex(FI, getPointerTy(Layout));
-//      SDValue Add = DAG.getNode(ISD::ADD, DL, PtrVT, FINode,
-//                                DAG.getConstant(Offset, DL, PtrVT));
-//      Chains.push_back(
-//          DAG.getStore(Chain, DL, Arg, Add,
-//                       MachinePointerInfo::getFixedStack(MF, FI, Offset)));
-//    }
-//    if (!Chains.empty())
-//      Chain = DAG.getNode(ISD::TokenFactor, DL, MVT::Other, Chains);
-//  } else if (IsVarArg) {
-//    FINode = DAG.getIntPtrConstant(0, DL);
-//  }
+  if (IsVarArg) {
+    // Outgoing non-fixed arguments are placed in a buffer. First
+    // compute their offsets and the total amount of buffer space needed.
+    for (unsigned I = NumFixedArgs; I < Outs.size(); ++I) {
+      const ISD::OutputArg &Out = Outs[I];
+      SDValue &Arg = OutVals[I];
+      EVT VT = Arg.getValueType();
+      assert(VT != MVT::iPTR && "Legalized args should be concrete");
+      Type *Ty = VT.getTypeForEVT(*DAG.getContext());
+      Align Alignment =
+          std::max(Out.Flags.getNonZeroOrigAlign(), Layout.getABITypeAlign(Ty));
+      unsigned Offset =
+          CCInfo.AllocateStack(Layout.getTypeAllocSize(Ty), Alignment);
+      CCInfo.addLoc(CCValAssign::getMem(ArgLocs.size(), VT.getSimpleVT(),
+                                        Offset, VT.getSimpleVT(),
+                                        CCValAssign::Full));
+    }
+  }
+
+  unsigned NumBytes = CCInfo.getAlignedCallFrameSize();
+
+  SDValue FINode;
+  if (IsVarArg && NumBytes) {
+    // For non-fixed arguments, next emit stores to store the argument values
+    // to the vararg buffer at the offsets computed above.
+    int FI = MF.getFrameInfo().CreateStackObject(NumBytes,
+                                                 Layout.getStackAlignment(),
+                                                 /*isSS=*/false);
+    unsigned ValNo = 0;
+    SmallVector<SDValue, 8> Chains;
+    auto PtrVT = getPointerTy(Layout);
+    for (SDValue Arg : drop_begin(OutVals, NumFixedArgs)) {
+      assert(ArgLocs[ValNo].getValNo() == ValNo &&
+             "ArgLocs should remain in order and only hold varargs args");
+      unsigned Offset = ArgLocs[ValNo++].getLocMemOffset();
+      FINode = DAG.getFrameIndex(FI, getPointerTy(Layout));
+      SDValue Add = DAG.getNode(ISD::ADD, DL, PtrVT, FINode,
+                                DAG.getConstant(Offset, DL, PtrVT));
+      Chains.push_back(
+          DAG.getStore(Chain, DL, Arg, Add,
+                       MachinePointerInfo::getFixedStack(MF, FI, Offset)));
+    }
+    if (!Chains.empty())
+      Chain = DAG.getNode(ISD::TokenFactor, DL, MVT::Other, Chains);
+  } else if (IsVarArg) {
+    FINode = DAG.getIntPtrConstant(0, DL);
+  }
 
   if (Callee->getOpcode() == ISD::GlobalAddress) {
     // If the callee is a GlobalAddress node (quite common, every direct call
@@ -414,12 +470,21 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     InTys.push_back(In.VT);
   }
 
-  unsigned NumArgs = Outs.size();
-  if (IsTailCall || IsVarArg || NumArgs > 3) {
+  // Construct list of actual arguments to be passed through the call, either
+  // as operands of callfi, etc. or pushed on the stack.
+  SmallVector<SDValue, 8> Args;
+  // Add all fixed arguments.
+  Args.append(OutVals.begin(),
+              IsVarArg ? OutVals.begin() + NumFixedArgs : OutVals.end());
+  // Add a pointer to the vararg buffer.
+  if (IsVarArg)
+    Args.push_back(FINode);
+
+  unsigned NumArgs = Args.size();
+  if (IsTailCall || NumArgs > 3) {
     // pass arguments on stack
-    for (auto Out : llvm::reverse(OutVals)) {
-      SDVTList NodeTys = DAG.getVTList(MVT::Other, Out.getValueType());
-      Chain = DAG.getNode(GlulxISD::PUSH, DL, NodeTys, {Chain, Out});
+    for (auto Out : llvm::reverse(Args)) {
+      Chain = DAG.getNode(GlulxISD::PUSH, DL, MVT::Other, {Chain, Out});
     }
   }
 
@@ -431,15 +496,17 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (IsTailCall) {
     // tailcalls do not return values to the current frame
     SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
+    // add number of arguments as operand
+    Ops.push_back(DAG.getTargetConstant(NumArgs, DL, MVT::i32));
     return DAG.getNode(GlulxISD::TAILCALL, DL, NodeTys, Ops);
   }
 
   InTys.push_back(MVT::Other);
   SDVTList InTyList = DAG.getVTList(InTys);
 
-  if (!IsVarArg && NumArgs <= 3) {
+  if (NumArgs <= 3) {
     // Using callf: add all arguments as operands
-    Ops.append(OutVals.begin(), OutVals.end());
+    Ops.append(Args.begin(), Args.end());
     unsigned CallOp;
     switch (NumArgs) {
     case 0: CallOp = GlulxISD::CALLF; break;
@@ -458,9 +525,8 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (NumRets == 1) {
     InVals.push_back(Chain.getValue(0));
     return Chain.getValue(1);
-  } else {
-    return Chain.getValue(0);
   }
+  return Chain.getValue(0);
 }
 
 bool GlulxTargetLowering::isEligibleForTailCallOptimization(
@@ -594,6 +660,46 @@ LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const {
 }
 
 SDValue
+GlulxTargetLowering::LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  const auto *ES = cast<ExternalSymbolSDNode>(Op);
+  EVT VT = Op.getValueType();
+  assert(ES->getTargetFlags() == 0 &&
+         "Unexpected target flags on generic ExternalSymbolSDNode");
+
+  return DAG.getTargetExternalSymbol(ES->getSymbol(), VT);
+}
+
+SDValue GlulxTargetLowering::LowerFrameIndex(SDValue Op,
+                                             SelectionDAG &DAG) const {
+  int FI = cast<FrameIndexSDNode>(Op)->getIndex();
+  return DAG.getTargetFrameIndex(FI, Op.getValueType());
+}
+
+SDValue GlulxTargetLowering::LowerCopyToReg(SDValue Op,
+                                            SelectionDAG &DAG) const {
+  SDValue Src = Op.getOperand(2);
+  if (isa<FrameIndexSDNode>(Src.getNode())) {
+    // CopyToReg nodes don't support FrameIndex operands. Other targets select
+    // the FI to some LEA-like instruction, but since we don't have that, we
+    // need to insert some kind of instruction that can take an FI operand and
+    // produces a value usable by CopyToReg (i.e. in a vreg). So insert a dummy
+    // copy_ri between Op and its FI operand.
+    SDValue Chain = Op.getOperand(0);
+    SDLoc DL(Op);
+    unsigned Reg = cast<RegisterSDNode>(Op.getOperand(1))->getReg();
+    EVT VT = Src.getValueType();
+    SDValue Copy(DAG.getMachineNode(Glulx::copy_ri, DL, VT, Src), 0);
+    return Op.getNode()->getNumValues() == 1
+               ? DAG.getCopyToReg(Chain, DL, Reg, Copy)
+               : DAG.getCopyToReg(Chain, DL, Reg, Copy,
+                                  Op.getNumOperands() == 4 ? Op.getOperand(3)
+                                                           : SDValue());
+  }
+  return SDValue();
+}
+
+SDValue
 GlulxTargetLowering::LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const {
   return SDValue();
 }
@@ -607,11 +713,91 @@ SDValue GlulxTargetLowering::LowerSELECT_CC(SDValue Op,
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
   SDLoc DL(Op);
 
-  SDValue TargetCC = DAG.getConstant(CC, DL, LHS.getValueType());
+  SDValue TargetCC = DAG.getConstant(CC, DL, MVT::i32);
   SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
   SDValue Ops[] = {LHS, RHS, TargetCC, TrueV, FalseV};
 
   return DAG.getNode(GlulxISD::SELECT_CC, DL, VTs, Ops);
+}
+
+SDValue GlulxTargetLowering::LowerBR_CC(SDValue Op,
+                                        SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  SDValue Chain = Op.getOperand(0);
+  SDValue CCVal = Op.getOperand(1);
+  SDValue LHS = Op.getOperand(2);
+  SDValue RHS = Op.getOperand(3);
+  SDValue TrueBB = Op.getOperand(4);
+
+  assert(LHS.getValueType() == MVT::f32 && "unexpected BR_CC type to legalize");
+
+  ISD::CondCode CC = cast<CondCodeSDNode>(CCVal)->get();
+  switch (CC) {
+  case ISD::SETO:
+    // Idiosyncratic method for branching on non-NaN values.
+    return DAG.getNode(GlulxISD::JORDERED, DL, MVT::Other,
+                       {Chain, LHS, RHS, TrueBB});
+
+  case ISD::SETONE:
+  case ISD::SETUO:
+  case ISD::SETUEQ:
+  case ISD::SETUGT:
+  case ISD::SETUGE:
+  case ISD::SETULT:
+  case ISD::SETULE:
+    // Other non-natively supported cases will be handled more uniformly below.
+    break;
+
+  default:
+    // This is a natively-supported conditional branch.
+    return DAG.getNode(GlulxISD::BR_CC_FP, DL, MVT::Other,
+                       {Chain, CCVal, LHS, RHS, TrueBB});
+  }
+
+  bool LHSNotNaN = DAG.isKnownNeverNaN(LHS);
+  bool RHSNotNaN = DAG.isKnownNeverNaN(RHS);
+
+  if (CC == ISD::SETONE && (!LHSNotNaN || !RHSNotNaN)) {
+    // Test non-NaN and unequal by checking both < and >.
+    Chain = DAG.getNode(GlulxISD::BR_CC_FP, DL, MVT::Other,
+                        {Chain, DAG.getCondCode(ISD::SETOLT),
+                         LHS, RHS, TrueBB});
+    return DAG.getNode(GlulxISD::BR_CC_FP, DL, MVT::Other,
+                       {Chain, DAG.getCondCode(ISD::SETOGT),
+                        LHS, RHS, TrueBB});
+  }
+
+  // Compute ordered (not branching on NaN) version of condition code
+  SDValue NewCC = DAG.getCondCode((ISD::CondCode) (CC & 0b0111));
+
+  // If it's possible for an operand to be NaN, check and branch if so.
+  if (!LHSNotNaN)
+    Chain = DAG.getNode(GlulxISD::JISNAN, DL, MVT::Other,
+                        Chain, LHS, TrueBB);
+  if (!RHSNotNaN)
+    Chain = DAG.getNode(GlulxISD::JISNAN, DL, MVT::Other,
+                        Chain, RHS, TrueBB);
+  // If we reach this point, the operands are known not to be NaN.
+  if (CC != ISD::SETUO) {
+    // Continue with ordered version of comparison.
+    Chain = DAG.getNode(GlulxISD::BR_CC_FP, DL, MVT::Other,
+                        {Chain, NewCC, LHS, RHS, TrueBB});
+  }
+  return Chain;
+}
+
+SDValue GlulxTargetLowering::LowerVASTART(SDValue Op,
+                                          SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  EVT PtrVT = getPointerTy(DAG.getMachineFunction().getDataLayout());
+
+  auto *MFI = DAG.getMachineFunction().getInfo<GlulxFunctionInfo>();
+  const Value *SV = cast<SrcValueSDNode>(Op.getOperand(2))->getValue();
+
+  SDValue ArgN = DAG.getCopyFromReg(DAG.getEntryNode(), DL,
+                                    MFI->getVarargBufferVreg(), PtrVT);
+  return DAG.getStore(Op.getOperand(0), DL, ArgN, Op.getOperand(1),
+                      MachinePointerInfo(SV));
 }
 
 static SDValue LowerFP_TO_SINT_SAT(SDValue Op, SelectionDAG &DAG) {
@@ -630,28 +816,117 @@ GlulxTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
   case ISD::GlobalAddress:        return LowerGlobalAddress(Op, DAG);
   case ISD::BlockAddress:         return LowerBlockAddress(Op, DAG);
+  case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
+  case ISD::FrameIndex:           return LowerFrameIndex(Op, DAG);
+  case ISD::CopyToReg:            return LowerCopyToReg(Op, DAG);
   case ISD::ConstantPool:         return LowerConstantPool(Op, DAG);
   case ISD::RETURNADDR:           return LowerRETURNADDR(Op, DAG);
   case ISD::SELECT_CC:            return LowerSELECT_CC(Op, DAG);
+  case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
+  case ISD::VASTART:              return LowerVASTART(Op, DAG);
   case ISD::FP_TO_SINT_SAT:       return LowerFP_TO_SINT_SAT(Op, DAG);
+  case ISD::STACKSAVE:
+  case ISD::STACKRESTORE:
+  case ISD::DYNAMIC_STACKALLOC: {
+    SDLoc DL(Op);
+    MachineFunction &MF = DAG.getMachineFunction();
+    const char *Msg = "Glulx backend does not support dynamic stack allocation";
+    DAG.getContext()->diagnose(
+        DiagnosticInfoUnsupported(MF.getFunction(), Msg, DL.getDebugLoc()));
+    report_fatal_error(Msg);
+  }
   default: llvm_unreachable("unimplemented operand");
   }
+}
+
+static MachineBasicBlock *emitCatch(MachineInstr &MI,
+                                    MachineBasicBlock *BB) {
+  const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+
+  // Create control flow handling the two execution paths for the catch
+
+  const BasicBlock *LLVMBB = BB->getBasicBlock();
+  MachineFunction::iterator I = ++BB->getIterator();
+
+  // ThisMBB:
+  // ...
+  //  catch %Token, NoThrowMBB
+  //  fallthrough --> ThrowMBB
+  MachineBasicBlock *ThisMBB = BB;
+  MachineFunction *F = BB->getParent();
+  MachineBasicBlock *ThrowMBB = F->CreateMachineBasicBlock(LLVMBB);
+  MachineBasicBlock *NoThrowMBB = F->CreateMachineBasicBlock(LLVMBB);
+
+  F->insert(I, ThrowMBB);
+  F->insert(I, NoThrowMBB);
+  // Update machine-CFG edges by transferring all successors of the current
+  // block to the new block which will contain the Phi node for the select.
+  NoThrowMBB->splice(NoThrowMBB->begin(), BB,
+                   std::next(MachineBasicBlock::iterator(MI)), BB->end());
+  NoThrowMBB->transferSuccessorsAndUpdatePHIs(BB);
+  // Next, add the throw-handling and fallthrough blocks as its successors.
+  BB->addSuccessor(ThrowMBB);
+  BB->addSuccessor(NoThrowMBB);
+
+  // Prepare flag indicating no throw occurred
+  Register Zero = F->getRegInfo().createVirtualRegister(&Glulx::GPRRegClass);
+  BuildMI(BB, DL, TII.get(Glulx::copy_ri), Zero).addImm(0);
+  // Insert catch instruction
+  Register Token = F->getRegInfo().createVirtualRegister(&Glulx::GPRRegClass);
+  BuildMI(BB, DL, TII.get(Glulx::CATCH), Token).addMBB(NoThrowMBB);
+
+  // ThrowMBB:
+  //  # fallthrough to NoThrowMBB
+  BB = ThrowMBB;
+
+  // Update machine-CFG edges
+  BB->addSuccessor(NoThrowMBB);
+
+  // NoThrowMBB:
+  //  %Result = phi [ %Token, ThrowMBB ], [ 0, ThisMBB ]
+  //  astore TokenDst, 0, %Token
+  // ...
+  BB = NoThrowMBB;
+  Register RetVal = MI.getOperand(0).getReg();
+  Register TokenDst = MI.getOperand(1).getReg();
+  BuildMI(*BB, BB->begin(), DL, TII.get(Glulx::ASTORE))
+      .addReg(Token)
+      .addReg(TokenDst)
+      .addImm(0);
+  BuildMI(*BB, BB->begin(), DL, TII.get(Glulx::PHI), RetVal)
+      .addReg(Token)
+      .addMBB(ThrowMBB)
+      .addReg(Zero)
+      .addMBB(ThisMBB);
+
+  MI.eraseFromParent(); // The pseudo instruction is gone now.
+  F->getProperties().reset(MachineFunctionProperties::Property::NoPHIs);
+  return BB;
 }
 
 MachineBasicBlock *
 GlulxTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                  MachineBasicBlock *BB) const {
-  const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
-  DebugLoc DL = MI.getDebugLoc();
   unsigned Opc = MI.getOpcode();
 
-  assert((Opc == Glulx::SELECT) && "unexpected instr type to insert");
+  switch (Opc) {
+  case Glulx::CATCH_INT:
+    return emitCatch(MI, BB);
+  case Glulx::SELECT:
+    break;
+  default:
+    llvm_unreachable("unexpected instr type with custom inserter");
+  }
+
+  const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
 
   // To "insert" a SELECT instruction, we actually have to insert the diamond
   // control-flow pattern.  The incoming instruction knows the destination vreg
   // to set, the condition code register to branch on, the true/false values to
   // select between, and a branch opcode to use.
-  const BasicBlock *LLVM_BB = BB->getBasicBlock();
+  const BasicBlock *LLVMBB = BB->getBasicBlock();
   MachineFunction::iterator I = ++BB->getIterator();
 
   // ThisMBB:
@@ -661,8 +936,8 @@ GlulxTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   //  fallthrough --> Copy0MBB
   MachineBasicBlock *ThisMBB = BB;
   MachineFunction *F = BB->getParent();
-  MachineBasicBlock *Copy0MBB = F->CreateMachineBasicBlock(LLVM_BB);
-  MachineBasicBlock *Copy1MBB = F->CreateMachineBasicBlock(LLVM_BB);
+  MachineBasicBlock *Copy0MBB = F->CreateMachineBasicBlock(LLVMBB);
+  MachineBasicBlock *Copy1MBB = F->CreateMachineBasicBlock(LLVMBB);
 
   F->insert(I, Copy0MBB);
   F->insert(I, Copy1MBB);
@@ -681,7 +956,7 @@ GlulxTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   switch (CC) {
 #define SET_NEWCC(X, Y) \
   case ISD::X: \
-    NewCC = Glulx::Y##_rr; \
+    NewCC = Glulx::Y; \
     break
     SET_NEWCC(SETGT, JGT);
     SET_NEWCC(SETUGT, JGTU);
@@ -703,9 +978,9 @@ GlulxTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     report_fatal_error("unimplemented select CondCode " + Twine(CC));
   }
 
-  Register LHS = MI.getOperand(1).getReg();
-  Register RHS = MI.getOperand(2).getReg();
-  BuildMI(BB, DL, TII.get(NewCC)).addReg(LHS).addReg(RHS).addMBB(Copy1MBB);
+  const MachineOperand &LHS = MI.getOperand(1);
+  const MachineOperand &RHS = MI.getOperand(2);
+  BuildMI(BB, DL, TII.get(NewCC)).add(LHS).add(RHS).addMBB(Copy1MBB);
 
   // Copy0MBB:
   //  %FalseValue = ...
@@ -726,5 +1001,6 @@ GlulxTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
       .addMBB(ThisMBB);
 
   MI.eraseFromParent(); // The pseudo instruction is gone now.
+  F->getProperties().reset(MachineFunctionProperties::Property::NoPHIs);
   return BB;
 }

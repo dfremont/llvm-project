@@ -528,6 +528,27 @@ KnownBits KnownBits::udiv(const KnownBits &LHS, const KnownBits &RHS) {
   return Known;
 }
 
+KnownBits KnownBits::sdiv(const KnownBits &LHS, const KnownBits &RHS) {
+  unsigned BitWidth = LHS.getBitWidth();
+  assert(!LHS.hasConflict() && !RHS.hasConflict());
+  KnownBits Known(BitWidth);
+
+  // If LHS, RHS >= 0, same as udiv.
+  if (LHS.isNonNegative() && RHS.isNonNegative()) {
+    unsigned LeadZ = LHS.countMinLeadingZeros();
+    unsigned RHSMaxLeadingZeros = RHS.countMaxLeadingZeros();
+
+    if (RHSMaxLeadingZeros != BitWidth)
+      LeadZ = std::min(BitWidth, LeadZ + BitWidth - RHSMaxLeadingZeros - 1);
+
+    Known.Zero.setHighBits(LeadZ);
+  }
+
+  // TODO handle other sign patterns.
+
+  return Known;
+}
+
 KnownBits KnownBits::urem(const KnownBits &LHS, const KnownBits &RHS) {
   unsigned BitWidth = LHS.getBitWidth();
   assert(!LHS.hasConflict() && !RHS.hasConflict());
