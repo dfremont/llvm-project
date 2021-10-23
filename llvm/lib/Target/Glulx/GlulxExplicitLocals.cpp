@@ -152,7 +152,7 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
 
       for (auto &Def : MI.defs()) {
         if (!Def.isReg())
-          continue;   // could be a symbol because of load/store inlining
+          continue;   // could be a symbol because of load/store folding
         Register OldReg = Def.getReg();
         if (Register::isVirtualRegister(OldReg)
             && UseEmpty[Register::virtReg2Index(OldReg)]) {

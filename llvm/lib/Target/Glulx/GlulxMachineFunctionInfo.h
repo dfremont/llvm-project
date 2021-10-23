@@ -61,6 +61,10 @@ class GlulxFunctionInfo final : public MachineFunctionInfo {
   // after WebAssemblyExplicitLocals
   unsigned FrameBaseLocal = -1U;
 
+  // Virtual registers holding computed addresses of objects in the call frame.
+  DenseMap<std::pair<unsigned, const MachineBasicBlock*>,
+      Register> FrameAddresses;
+
   // Function properties.
   bool CFGStackified = false;
 
@@ -111,6 +115,18 @@ public:
     return FrameBaseLocal;
   }
   void setBasePointerVreg(unsigned Reg) { BasePtrVreg = Reg; }
+
+  Register getVRegForFrameOffset(unsigned Offset,
+                                 const MachineBasicBlock *MBB) {
+    auto Res = FrameAddresses.find(std::make_pair(Offset, MBB));
+    return Res == FrameAddresses.end() ? (Register) 0 : Res->second;
+  }
+  void setVRegForFrameOffset(unsigned Offset,
+                             const MachineBasicBlock *MBB, Register VReg) {
+    auto Key = std::make_pair(Offset, MBB);
+    assert(!FrameAddresses.count(Key) && "FI VReg already set");
+    FrameAddresses[Key] = VReg;
+  }
 
   static const unsigned UnusedReg = -1u;
 

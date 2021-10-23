@@ -18,9 +18,6 @@
 #include "GlulxMachineFunctionInfo.h"
 #include "GlulxSubtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/LiveIntervals.h"
-#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/Debug.h"
@@ -41,13 +38,6 @@ class GlulxFoldStores final : public MachineFunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<LiveIntervals>();
-    AU.addPreserved<LiveIntervals>();
-    AU.addPreserved<SlotIndexes>();
-    AU.addRequired<MachineDominatorTree>();
-    AU.addPreserved<MachineDominatorTree>();
-    AU.addPreservedID(MachineDominatorsID);
-    AU.addPreserved<MachineBlockFrequencyInfo>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -56,11 +46,6 @@ class GlulxFoldStores final : public MachineFunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
   GlulxFoldStores() : MachineFunctionPass(ID) {}
-
-private:
-  bool isStoreFoldable(MachineInstr &MI,
-                       SmallDenseMap<Register, MachineInstr*, 16>
-                           &FoldAsStoreUseCandidates);
 };
 } // end anonymous namespace
 

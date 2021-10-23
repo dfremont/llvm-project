@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "GlulxRegisterInfo.h"
+#include "GlulxMachineFunctionInfo.h"
 #include "GlulxInstrInfo.h"
 #include "GlulxSubtarget.h"
 #include "llvm/Support/Debug.h"
@@ -122,18 +123,24 @@ void GlulxRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 //  }
 
   // Otherwise, change operand to FP, potentially plus an offset
+  auto *GFI = MF.getInfo<GlulxFunctionInfo>();
   const auto *TII = MF.getSubtarget<GlulxSubtarget>().getInstrInfo();
   unsigned FIRegOperand = FrameRegister;  // Default operand will be FP
   if (FrameOffset) {
-    // Create "ADD FP, offset" and make it the operand.
-    const TargetRegisterClass *PtrRC =
-        MRI.getTargetRegisterInfo()->getPointerRegClass(MF);
-    FIRegOperand = MRI.createVirtualRegister(PtrRC);
-    BuildMI(MBB, *II, II->getDebugLoc(),
-            TII->get(Glulx::ADD),
-            FIRegOperand)
-        .addReg(FrameRegister)
-        .addImm(FrameOffset);
+    // If this offset has already been seen, reuse computed address.
+    FIRegOperand = GFI->getVRegForFrameOffset(FrameOffset, &MBB);
+    if (!FIRegOperand) {
+      // Create "ADD FP, offset" and make it the operand.
+      const TargetRegisterClass *PtrRC =
+          MRI.getTargetRegisterInfo()->getPointerRegClass(MF);
+      FIRegOperand = MRI.createVirtualRegister(PtrRC);
+      GFI->setVRegForFrameOffset(FrameOffset, &MBB, FIRegOperand);
+      BuildMI(MBB, *II, II->getDebugLoc(),
+              TII->get(Glulx::ADD),
+              FIRegOperand)
+          .addReg(FrameRegister)
+          .addImm(FrameOffset);
+    }
   }
   MI.getOperand(FIOperandNum).ChangeToRegister(FIRegOperand, /*isDef=*/false);
 }
