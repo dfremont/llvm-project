@@ -339,12 +339,12 @@ enabled sub-projects. Nearly all of these variable names begin with
   This option is not available on Windows.
 
 **LLVM_BUILD_TESTS**:BOOL
-  Build LLVM unit tests. Defaults to OFF. Targets for building each unit test
-  are generated in any case. You can build a specific unit test using the
-  targets defined under *unittests*, such as ADTTests, IRTests, SupportTests,
-  etc. (Search for ``add_llvm_unittest`` in the subdirectories of *unittests*
-  for a complete list of unit tests.) It is possible to build all unit tests
-  with the target *UnitTests*.
+  Include LLVM unit tests in the 'all' build target. Defaults to OFF. Targets
+  for building each unit test are generated in any case. You can build a
+  specific unit test using the targets defined under *unittests*, such as
+  ADTTests, IRTests, SupportTests, etc. (Search for ``add_llvm_unittest`` in
+  the subdirectories of *unittests* for a complete list of unit tests.) It is
+  possible to build all unit tests with the target *UnitTests*.
 
 **LLVM_BUILD_TOOLS**:BOOL
   Build LLVM tools. Defaults to ON. Targets for building each tool are generated
@@ -491,7 +491,7 @@ enabled sub-projects. Nearly all of these variable names begin with
   This feature allows to have one build for only LLVM and another for clang+llvm
   using the same source checkout.
   The full list is:
-  ``clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;openmp;parallel-libs;polly;pstl``
+  ``clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;openmp;polly;pstl``
 
 **LLVM_ENABLE_RUNTIMES**:STRING
   Build libc++, libc++abi or other projects using that a just-built compiler.

@@ -18,7 +18,7 @@
 #include "TargetInfo/GlulxTargetInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Transforms/Utils.h"
 
 using namespace llvm;

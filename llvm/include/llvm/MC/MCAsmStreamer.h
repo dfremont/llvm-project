@@ -237,6 +237,7 @@ public:
                             unsigned MaxBytesToEmit = 0) override;
 
   void emitCodeAlignment(unsigned ByteAlignment,
+                         const MCSubtargetInfo *STI,
                          unsigned MaxBytesToEmit = 0) override;
 
   void emitValueToOffset(const MCExpr *Offset,

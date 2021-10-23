@@ -14,13 +14,9 @@
 #include "Glulx.h"
 #include "GlulxSubtarget.h"
 #include "GlulxMachineFunctionInfo.h"
-#include "GlulxRegisterInfo.h"
 #include "GlulxTargetMachine.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Function.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
 

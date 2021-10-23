@@ -1410,8 +1410,11 @@ void GlobalOp::build(OpBuilder &builder, OperationState &result, Type type,
 
 static void printGlobalOp(OpAsmPrinter &p, GlobalOp op) {
   p << ' ' << stringifyLinkage(op.linkage()) << ' ';
-  if (op.unnamed_addr())
-    p << stringifyUnnamedAddr(*op.unnamed_addr()) << ' ';
+  if (auto unnamedAddr = op.unnamed_addr()) {
+    StringRef str = stringifyUnnamedAddr(*unnamedAddr);
+    if (!str.empty())
+      p << str << ' ';
+  }
   if (op.constant())
     p << "constant ";
   p.printSymbolName(op.sym_name());
@@ -1488,7 +1491,7 @@ static RetTy parseOptionalLLVMKeyword(OpAsmParser &parser,
 // The type can be omitted for string attributes, in which case it will be
 // inferred from the value of the string as [strlen(value) x i8].
 static ParseResult parseGlobalOp(OpAsmParser &parser, OperationState &result) {
-  MLIRContext *ctx = parser.getBuilder().getContext();
+  MLIRContext *ctx = parser.getContext();
   // Parse optional linkage, default to External.
   result.addAttribute(getLinkageAttrName(),
                       LLVM::LinkageAttr::get(
@@ -1527,7 +1530,7 @@ static ParseResult parseGlobalOp(OpAsmParser &parser, OperationState &result) {
   Region &initRegion = *result.addRegion();
   if (types.empty()) {
     if (auto strAttr = value.dyn_cast_or_null<StringAttr>()) {
-      MLIRContext *context = parser.getBuilder().getContext();
+      MLIRContext *context = parser.getContext();
       auto arrayType = LLVM::LLVMArrayType::get(IntegerType::get(context, 8),
                                                 strAttr.getValue().size());
       types.push_back(arrayType);
@@ -1756,7 +1759,7 @@ static ParseResult parseLLVMFuncOp(OpAsmParser &parser,
   // Default to external linkage if no keyword is provided.
   result.addAttribute(
       getLinkageAttrName(),
-      LinkageAttr::get(parser.getBuilder().getContext(),
+      LinkageAttr::get(parser.getContext(),
                        parseOptionalLLVMKeyword<Linkage>(
                            parser, result, LLVM::Linkage::External)));
 
@@ -2371,8 +2374,7 @@ void FMFAttr::print(DialectAsmPrinter &printer) const {
   printer << ">";
 }
 
-Attribute FMFAttr::parse(MLIRContext *context, DialectAsmParser &parser,
-                         Type type) {
+Attribute FMFAttr::parse(DialectAsmParser &parser, Type type) {
   if (failed(parser.parseLess()))
     return {};
 
@@ -2397,7 +2399,7 @@ Attribute FMFAttr::parse(MLIRContext *context, DialectAsmParser &parser,
       return {};
   }
 
-  return FMFAttr::get(parser.getBuilder().getContext(), flags);
+  return FMFAttr::get(parser.getContext(), flags);
 }
 
 void LinkageAttr::print(DialectAsmPrinter &printer) const {
@@ -2409,8 +2411,7 @@ void LinkageAttr::print(DialectAsmPrinter &printer) const {
   printer << ">";
 }
 
-Attribute LinkageAttr::parse(MLIRContext *context, DialectAsmParser &parser,
-                             Type type) {
+Attribute LinkageAttr::parse(DialectAsmParser &parser, Type type) {
   StringRef elemName;
   if (parser.parseLess() || parser.parseKeyword(&elemName) ||
       parser.parseGreater())
@@ -2421,7 +2422,7 @@ Attribute LinkageAttr::parse(MLIRContext *context, DialectAsmParser &parser,
     return {};
   }
   Linkage linkage = *elem;
-  return LinkageAttr::get(context, linkage);
+  return LinkageAttr::get(parser.getContext(), linkage);
 }
 
 LoopOptionsAttrBuilder::LoopOptionsAttrBuilder(LoopOptionsAttr attr)
@@ -2536,8 +2537,7 @@ void LoopOptionsAttr::print(DialectAsmPrinter &printer) const {
   printer << ">";
 }
 
-Attribute LoopOptionsAttr::parse(MLIRContext *context, DialectAsmParser &parser,
-                                 Type type) {
+Attribute LoopOptionsAttr::parse(DialectAsmParser &parser, Type type) {
   if (failed(parser.parseLess()))
     return {};
 
@@ -2590,7 +2590,7 @@ Attribute LoopOptionsAttr::parse(MLIRContext *context, DialectAsmParser &parser,
     return {};
 
   llvm::sort(options, llvm::less_first());
-  return get(parser.getBuilder().getContext(), options);
+  return get(parser.getContext(), options);
 }
 
 Attribute LLVMDialect::parseAttribute(DialectAsmParser &parser,
@@ -2604,8 +2604,7 @@ Attribute LLVMDialect::parseAttribute(DialectAsmParser &parser,
     return {};
   {
     Attribute attr;
-    auto parseResult =
-        generatedAttributeParser(getContext(), parser, attrKind, type, attr);
+    auto parseResult = generatedAttributeParser(parser, attrKind, type, attr);
     if (parseResult.hasValue())
       return attr;
   }
