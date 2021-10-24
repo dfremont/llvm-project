@@ -99,11 +99,13 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
   while (MRI.getNumVirtRegs() < ArgCount)
     MRI.createVirtualRegister(&Glulx::GPRRegClass);
 
-  // Create extra virtual register to use as local for SP, if needed.
+  // Create extra virtual registers for SP/FP, if needed.
+  if (!MRI.use_empty(Glulx::VRStack))
+    MRI.createVirtualRegister(&Glulx::GPRRegClass);
   if (!MRI.use_empty(Glulx::VRFrame))
     MRI.createVirtualRegister(&Glulx::GPRRegClass);
 
-  // Map virtual registers (and SP) to their local ids.
+  // Map virtual registers (and SP/FP) to their local ids.
   DenseMap<unsigned, unsigned> Reg2Local;
   BitVector LocalUsed(MRI.getNumVirtRegs());
 
@@ -115,7 +117,6 @@ bool GlulxExplicitLocals::runOnMachineFunction(MachineFunction &MF) {
     if (!Glulx::isArgument(MI.getOpcode()))
       break;
     Register Reg = MI.getOperand(0).getReg();
-    assert(!MFI.isVRegStackified(Reg));
     auto Local = static_cast<unsigned>(MI.getOperand(1).getImm());
     assert(Local < MRI.getNumVirtRegs() && "fewer vregs than arguments");
     Reg2Local[Reg] = Local;

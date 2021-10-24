@@ -170,13 +170,14 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 let isMoveReg = 1 in
 def copy_rr : GlulxInst1<0x40, "copy", "$rs, $rd",
                       (outs GPR:$rd), (ins GPR:$rs)>;
-let isMoveImm = 1 in
+let isMoveImm = 1 in {
 def copy_ri : GlulxInst1<0x40, "copy", "$src, $rd",
                       (outs GPR:$rd), (ins i32imm:$src),
                       [(set I32:$rd, imm:$src)]>;
 def copy_rf : GlulxInst1<0x40, "copy", "$src, $rd",
                       (outs GPR:$rd), (ins f32imm:$src),
                       [(set F32:$rd, fpimm:$src)]>;
+}
 }
 
 def : Pat<(i32 (bitconvert F32:$v)), (I32:$v)>;
@@ -592,14 +593,15 @@ def : Pat<(int_glulx_mod I32:$v1, I32:$v2), (MOD I32:$v1, I32:$v2)>;
 
 // Continuations
 
-let isBranch = 1 in
+let hasSideEffects = 1, isTerminator = 1 in
 def CATCH : GlulxInst<0x32, "catch", "$out, $dst",
                       (outs GPR:$out), (ins brtarget:$dst)>;
-let isCodeGenOnly = 1, usesCustomInserter = 1 in
+let isCodeGenOnly = 1, usesCustomInserter = 1, mayStore = 1,
+    hasSideEffects = 1 in
 def CATCH_INT : GlulxInst<0, "catch_intrinsic", "$out, $in",
                           (outs GPR:$out), (ins GPR:$in),
                           [(set I32:$out, (int_glulx_catch I32:$in))]>;
-let isBarrier = 1 in
+let isBarrier = 1, isTerminator = 1, hasSideEffects = 1 in
 defm THROW : Int02<0x33, "throw", int_glulx_throw>;
 
 // Memory allocation heap

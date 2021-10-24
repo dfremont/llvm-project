@@ -57,7 +57,7 @@ void GlulxRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
          "and don't use FrameIndex operands.");
   Register FrameRegister = getFrameRegister(MF);
 
-  // If this is the address operand of a load or store, make it relative to SP
+  // If this is the address operand of a load or store, make it relative to FP
   // and fold the frame offset directly in.
   unsigned Opcode = MI.getOpcode();
   unsigned Scale = 0;
@@ -96,31 +96,17 @@ void GlulxRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     }
   }
 
-//  // If this is an address being added to a constant, fold the frame offset
-//  // into the constant.
-//  if (MI.getOpcode() == Glulx::ADD) {
-//    MachineOperand &OtherMO = MI.getOperand(3 - FIOperandNum);
-//    if (OtherMO.isReg()) {
-//      Register OtherMOReg = OtherMO.getReg();
-//      if (Register::isVirtualRegister(OtherMOReg)) {
-//        MachineInstr *Def = MF.getRegInfo().getUniqueVRegDef(OtherMOReg);
-//        // TODO: For now we just opportunistically do this in the case where
-//        // the CONST_I32/64 happens to have exactly one def and one use. We
-//        // should generalize this to optimize in more cases.
-//        if (Def && Def->getOpcode() ==
-//                       WebAssemblyFrameLowering::getOpcConst(MF) &&
-//            MRI.hasOneNonDBGUse(Def->getOperand(0).getReg())) {
-//          MachineOperand &ImmMO = Def->getOperand(1);
-//          if (ImmMO.isImm()) {
-//            ImmMO.setImm(ImmMO.getImm() + uint32_t(FrameOffset));
-//            MI.getOperand(FIOperandNum)
-//                .ChangeToRegister(FrameRegister, /*isDef=*/false);
-//            return;
-//          }
-//        }
-//      }
-//    }
-//  }
+  // If this is an address being added to a constant, fold the frame offset
+  // into the constant.
+  if (MI.getOpcode() == Glulx::ADD) {
+    MachineOperand &OtherMO = MI.getOperand(3 - FIOperandNum);
+    if (OtherMO.isImm()) {
+      OtherMO.setImm(OtherMO.getImm() + uint32_t(FrameOffset));
+      MI.getOperand(FIOperandNum)
+          .ChangeToRegister(FrameRegister, /*isDef=*/false);
+      return;
+    }
+  }
 
   // Otherwise, change operand to FP, potentially plus an offset
   auto *GFI = MF.getInfo<GlulxFunctionInfo>();

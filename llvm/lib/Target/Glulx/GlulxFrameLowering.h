@@ -26,9 +26,9 @@ protected:
 public:
   explicit GlulxFrameLowering(const GlulxSubtarget &STI)
     : TargetFrameLowering(TargetFrameLowering::StackGrowsUp,
-                          /*StackAlignment*/Align(4),
+                          /*StackAlignment*/Align(1),
                           /*LocalAreaOffset*/0,
-                          /*TransAl*/Align(4)),
+                          /*TransAl*/Align(1)),
       STI(STI) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;

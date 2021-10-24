@@ -83,6 +83,9 @@ bool GlulxFoldStores::runOnMachineFunction(MachineFunction &MF) {
       MachineInstr *MI = &*MII--;
       unsigned MIOpc = MI->getOpcode();
 
+      if (MI->isPHI())
+        break;    // Can't fold into PHI instructions.
+
       // Check whether we can fold a later store into MI.
       if (!FoldAsStoreUseCandidates.empty()) {
 
@@ -97,11 +100,6 @@ bool GlulxFoldStores::runOnMachineFunction(MachineFunction &MF) {
           Register FoldAsStoreUseReg = MOp.getReg();
           auto Use = FoldAsStoreUseCandidates.find(FoldAsStoreUseReg);
           if (Use != FoldAsStoreUseCandidates.end()) {
-            // We need to fold load after optimizeCmpInstr, since
-            // optimizeCmpInstr can enable folding by converting SUB to CMP.
-            // Save FoldAsLoadDefReg because optimizeLoadInstr() resets it and
-            // we need it for markUsesInDebugValueAsUndef().
-            Register FoldedReg = FoldAsStoreUseReg;
             MachineInstr *CopyMI = Use->second;
             assert(CopyMI->getOpcode() == Glulx::copy_rm);
             auto &StoreOp = CopyMI->getOperand(1);
@@ -134,8 +132,8 @@ bool GlulxFoldStores::runOnMachineFunction(MachineFunction &MF) {
               MI->getMF()->moveCallSiteInfo(MI, FoldMI);
             MI->eraseFromParent();
             CopyMI->eraseFromParent();
-            MRI->markUsesInDebugValueAsUndef(FoldedReg);
-            FoldAsStoreUseCandidates.erase(FoldedReg);
+            MRI->markUsesInDebugValueAsUndef(FoldAsStoreUseReg);
+            FoldAsStoreUseCandidates.erase(FoldAsStoreUseReg);
             ++NumStoreFold;
 
             // MI is replaced with FoldMI so we can continue trying to fold

@@ -81,7 +81,7 @@ bool GlulxRegColoring::runOnMachineFunction(MachineFunction &MF) {
   // If there are calls to setjmp or sigsetjmp, don't perform coloring. Virtual
   // registers could be modified before the longjmp is executed, resulting in
   // the wrong value being used afterwards. (See <rdar://problem/8007500>.)
-  // TODO: Does WebAssembly need to care about setjmp for register coloring?
+  // TODO: Does Glulx need to care about setjmp for register coloring?
   if (MF.exposesReturnsTwice())
     return false;
 
@@ -99,8 +99,6 @@ bool GlulxRegColoring::runOnMachineFunction(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "Interesting register intervals:\n");
   for (unsigned I = 0; I < NumVRegs; ++I) {
     Register VReg = Register::index2VirtReg(I);
-    if (MFI.isVRegStackified(VReg))
-      continue;
     // Skip unused registers, which can use $drop.
     if (MRI->use_empty(VReg))
       continue;

@@ -59,8 +59,8 @@ static std::string computeDataLayout() {
   // 32-bit floating point, 8 bit aligned
   Ret += "-f32:8";
 
-  // 32-bit natural stack alignment
-  Ret += "-S32";
+  // 8-bit natural stack alignment
+  Ret += "-S8";
 
   return Ret;
 }
@@ -212,7 +212,4 @@ void GlulxPassConfig::addPreEmitPass() {
 //  // Perform the very last peephole optimizations on the code.
 //  if (getOptLevel() != CodeGenOpt::None)
 //    addPass(createWebAssemblyPeephole());
-//
-//  // Collect information to prepare for MC lowering / asm printing.
-//  addPass(createWebAssemblyMCLowerPrePass());
 }

@@ -40,8 +40,8 @@ public:
                     "-n32"
                     // 32-bit floats, 8-bit aligned
                     "-f32:8"
-                    // 32-bit natural stack alignment
-                    "-S32"
+                    // 8-bit natural stack alignment
+                    "-S8"
     );
     TLSSupported = false;
     VLASupported = false;

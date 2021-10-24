@@ -56,7 +56,7 @@ void GlulxInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     if (int(WAReg) >= 0)
       printRegName(O, WAReg);
     else
-      O << "$" << GlulxFunctionInfo::getWARegStackId(WAReg);
+      O << "$" << ((unsigned) WAReg & INT32_MAX);
   } else if (Op.isImm()) {
     int64_t Val = Op.getImm();
     assert(isInt<32>(Val) && "Glulx integer immediate out of range");

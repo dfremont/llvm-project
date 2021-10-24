@@ -1,4 +1,4 @@
-//=- GlulxMachineFunctionInfo.cpp - WebAssembly Machine Function Info -=//
+//=- GlulxMachineFunctionInfo.cpp - Glulx Machine Function Info -----------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,7 +16,6 @@
 #include "GlulxISelLowering.h"
 #include "GlulxSubtarget.h"
 #include "llvm/CodeGen/Analysis.h"
-#include "llvm/CodeGen/WasmEHFuncInfo.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
@@ -66,18 +65,8 @@ void llvm::Glulx::computeSignatureVTs(const FunctionType *Ty,
     Params.push_back(PtrVT);
 }
 
-//std::unique_ptr<wasm::WasmSignature>
-//llvm::Glulx::signatureFromMVTs(const SmallVectorImpl<MVT> &Results,
-//                        const SmallVectorImpl<MVT> &Params) {
-//  auto Sig = std::make_unique<wasm::WasmSignature>();
-//  valTypesFromMVTs(Results, Sig->Returns);
-//  valTypesFromMVTs(Params, Sig->Params);
-//  return Sig;
-//}
-
 yaml::GlulxFunctionInfo::GlulxFunctionInfo(
-    const llvm::GlulxFunctionInfo &MFI)
-    : CFGStackified(MFI.isCFGStackified()) {
+    const llvm::GlulxFunctionInfo &MFI) {
   for (auto VT : MFI.getParams())
     Params.push_back(EVT(VT).getEVTString());
   for (auto VT : MFI.getResults())

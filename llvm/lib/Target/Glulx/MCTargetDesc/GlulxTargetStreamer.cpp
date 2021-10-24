@@ -34,6 +34,7 @@ void GlulxTargetAsmStreamer::changeSection(const MCSection *CurSection,
                                         const MCExpr *SubSection,
                                         raw_ostream &OS) {
   SectionKind Kind = Section->getKind();
+  (void) Kind;  // used only in asserts
   assert((Kind.isText() || Kind.isData()) && "unexpected Glulx section type");
   assert((!CurSection || !CurSection->getKind().isData())
          && "cannot move back to ROM after data section");

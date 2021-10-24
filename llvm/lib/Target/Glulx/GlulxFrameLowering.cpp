@@ -49,14 +49,32 @@ void GlulxFrameLowering::emitPrologue(MachineFunction &MF,
   const auto *TII = ST.getInstrInfo();
 
   auto InsertPt = MBB.begin();
-  while (InsertPt != MBB.end() &&
-         Glulx::isArgument(InsertPt->getOpcode()))
+  while (InsertPt != MBB.end() && Glulx::isArgument(InsertPt->getOpcode()))
     ++InsertPt;
   DebugLoc DL;
 
-  unsigned SPReg = Glulx::VRFrame;
+  // Work out choice of SP and FP "registers".
+  unsigned SPReg = Glulx::VRStack;
+  unsigned FPReg = Glulx::VRFrame;
+  Align Alignment = MFI.getMaxAlign();
+  if (Log2(Alignment) == 0) {
+    // No alignment needed; use FP as SP to save one local.
+    SPReg = Glulx::VRFrame;
+  }
+
+  // Allocate space for the stack.
   BuildMI(MBB, InsertPt, DL, TII->get(Glulx::MALLOC_i), SPReg)
     .addImm(StackSize > 0 ? StackSize : 4);
+
+  // Enforce call frame alignment required by objects on the stack.
+  if (Log2(Alignment) > 0) {
+    BuildMI(MBB, InsertPt, DL, TII->get(Glulx::ADD), FPReg)
+        .addReg(SPReg)
+        .addImm(Alignment.value() - 1);
+    BuildMI(MBB, InsertPt, DL, TII->get(Glulx::AND), FPReg)
+        .addReg(FPReg)
+        .addImm((int64_t) ~(Alignment.value() - 1));
+  }
 }
 
 void GlulxFrameLowering::emitEpilogue(MachineFunction &MF,
@@ -73,8 +91,15 @@ void GlulxFrameLowering::emitEpilogue(MachineFunction &MF,
   if (InsertPt != MBB.end())
     DL = InsertPt->getDebugLoc();
 
+  // Work out choice of SP "register" (see comment in emitPrologue).
+  unsigned SPReg = Glulx::VRStack;
+  Align Alignment = MFI.getMaxAlign();
+  if (Log2(Alignment) == 0)
+    SPReg = Glulx::VRFrame;
+
+  // Free stack memory.
   BuildMI(MBB, InsertPt, DL, TII->get(Glulx::MFREE_r))
-    .addReg(Glulx::VRFrame);
+    .addReg(SPReg);
 }
 
 StackOffset

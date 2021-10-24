@@ -15,13 +15,13 @@ class GlulxReg<string n> : Register<n> {
     let Namespace = "Glulx";
 }
 
-// Special Register used as stack pointer
-def VRFrame  : GlulxReg<"%SP">;
+// Special registers used as stack & frame pointers
+def VRStack  : GlulxReg<"%SP">;
+def VRFrame  : GlulxReg<"%FP">;
 
 // The register allocation framework requires register classes have at least
 // one register, so we define a few for the integer / floating point register
 // classes since we otherwise don't need a physical register in those classes.
-// These are also used as "types" in the generated assembly matcher.
 def I32_0 : GlulxReg<"%i32.0">;
 
 // The incoming arguments "register". This is an opaque entity which serves to
@@ -36,4 +36,4 @@ def ARGUMENTS : GlulxReg<"ARGUMENTS">;
 class GlulxRegClass<list<ValueType> regTypes, int alignment, dag regList>
      : RegisterClass<"Glulx", regTypes, alignment, regList>;
 
-def GPR : GlulxRegClass<[i32, f32], 8, (add I32_0, VRFrame)>;
+def GPR : GlulxRegClass<[i32, f32], 8, (add I32_0, VRStack, VRFrame)>;

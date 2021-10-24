@@ -1,4 +1,4 @@
-// GlulxMachineFunctionInfo.h-WebAssembly machine function info-*- C++ -*-
+// GlulxMachineFunctionInfo.h-Glulx machine function info-*- C++ -*--------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -38,14 +38,6 @@ class GlulxFunctionInfo final : public MachineFunctionInfo {
   /// A mapping from CodeGen vreg index to Glulx local number.
   std::vector<unsigned> WARegs;
 
-  /// A mapping from CodeGen vreg index to a boolean value indicating whether
-  /// the given register is considered to be "stackified", meaning it has been
-  /// determined or made to meet the stack requirements:
-  ///   - single use (per path)
-  ///   - single def (per path)
-  ///   - defined and used in LIFO order with other stack registers
-  BitVector VRegStackified;
-
   // A virtual register holding the pointer to the vararg buffer for vararg
   // functions. It is created and set in TLI::LowerFormalArguments and read by
   // TLI::LowerVASTART
@@ -58,15 +50,12 @@ class GlulxFunctionInfo final : public MachineFunctionInfo {
   // after it has been replaced by a vreg
   unsigned FrameBaseVreg = -1U;
   // The local holding the frame base. This is either FP or SP
-  // after WebAssemblyExplicitLocals
+  // after GlulxExplicitLocals
   unsigned FrameBaseLocal = -1U;
 
   // Virtual registers holding computed addresses of objects in the call frame.
   DenseMap<std::pair<unsigned, const MachineBasicBlock*>,
       Register> FrameAddresses;
-
-  // Function properties.
-  bool CFGStackified = false;
 
 public:
   explicit GlulxFunctionInfo(MachineFunction &MF)
@@ -130,25 +119,6 @@ public:
 
   static const unsigned UnusedReg = -1u;
 
-  void stackifyVReg(MachineRegisterInfo &MRI, unsigned VReg) {
-    assert(MRI.def_empty(VReg) || MRI.getUniqueVRegDef(VReg));
-    auto I = Register::virtReg2Index(VReg);
-    if (I >= VRegStackified.size())
-      VRegStackified.resize(I + 1);
-    VRegStackified.set(I);
-  }
-  void unstackifyVReg(unsigned VReg) {
-    auto I = Register::virtReg2Index(VReg);
-    if (I < VRegStackified.size())
-      VRegStackified.reset(I);
-  }
-  bool isVRegStackified(unsigned VReg) const {
-    auto I = Register::virtReg2Index(VReg);
-    if (I >= VRegStackified.size())
-      return false;
-    return VRegStackified.test(I);
-  }
-
   void initWARegs(MachineRegisterInfo &MRI);
   void setWAReg(unsigned VReg, unsigned WAReg) {
     assert(WAReg != UnusedReg);
@@ -161,15 +131,6 @@ public:
     assert(I < WARegs.size());
     return WARegs[I];
   }
-
-  // For a given stackified WAReg, return the id number to print with push/pop.
-  static unsigned getWARegStackId(unsigned Reg) {
-    assert(Reg & INT32_MIN);
-    return Reg & INT32_MAX;
-  }
-
-  bool isCFGStackified() const { return CFGStackified; }
-  void setCFGStackified(bool Value = true) { CFGStackified = Value; }
 };
 
 namespace Glulx {
@@ -182,13 +143,6 @@ void computeSignatureVTs(const FunctionType *Ty, const Function *TargetFunc,
                          const Function &ContextFunc, const TargetMachine &TM,
                          SmallVectorImpl<MVT> &Params,
                          SmallVectorImpl<MVT> &Results);
-
-void valTypesFromMVTs(const ArrayRef<MVT> &In,
-                      SmallVectorImpl<wasm::ValType> &Out);
-
-std::unique_ptr<wasm::WasmSignature>
-signatureFromMVTs(const SmallVectorImpl<MVT> &Results,
-                  const SmallVectorImpl<MVT> &Params);
 } // end namespace Glulx
 
 namespace yaml {
@@ -198,10 +152,6 @@ using BBNumberMap = DenseMap<int, int>;
 struct GlulxFunctionInfo final : public yaml::MachineFunctionInfo {
   std::vector<FlowStringValue> Params;
   std::vector<FlowStringValue> Results;
-  bool CFGStackified = false;
-  // The same as WasmEHFuncInfo's SrcToUnwindDest, but stored in the mapping of
-  // BB numbers
-  BBNumberMap SrcToUnwindDest;
 
   GlulxFunctionInfo() = default;
   GlulxFunctionInfo(const llvm::GlulxFunctionInfo &MFI);
@@ -214,21 +164,6 @@ template <> struct MappingTraits<GlulxFunctionInfo> {
   static void mapping(IO &YamlIO, GlulxFunctionInfo &MFI) {
     YamlIO.mapOptional("params", MFI.Params, std::vector<FlowStringValue>());
     YamlIO.mapOptional("results", MFI.Results, std::vector<FlowStringValue>());
-    YamlIO.mapOptional("isCFGStackified", MFI.CFGStackified, false);
-    YamlIO.mapOptional("glulxEHFuncInfo", MFI.SrcToUnwindDest);
-  }
-};
-
-template <> struct CustomMappingTraits<BBNumberMap> {
-  static void inputOne(IO &YamlIO, StringRef Key,
-                       BBNumberMap &SrcToUnwindDest) {
-    YamlIO.mapRequired(Key.str().c_str(),
-                       SrcToUnwindDest[std::atoi(Key.str().c_str())]);
-  }
-
-  static void output(IO &YamlIO, BBNumberMap &SrcToUnwindDest) {
-    for (auto KV : SrcToUnwindDest)
-      YamlIO.mapRequired(std::to_string(KV.first).c_str(), KV.second);
   }
 };
 

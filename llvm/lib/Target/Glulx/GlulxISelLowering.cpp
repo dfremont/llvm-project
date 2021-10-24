@@ -1,4 +1,4 @@
-//===-- GlulxISelLowering.cpp - Glulx DAG Lowering Implementation -----------===//
+//===-- GlulxISelLowering.cpp - Glulx DAG Lowering Implementation ---------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -18,7 +18,6 @@
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/ValueTypes.h"
@@ -26,7 +25,6 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/Support/Debug.h"
 #include <cassert>
 
 using namespace llvm;
@@ -157,7 +155,7 @@ const char *GlulxTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case GlulxISD::JISNAN: return "GlulxISD::JISNAN";
   case GlulxISD::JORDERED: return "GlulxISD::JORDERED";
   case GlulxISD::BR_CC_FP: return "GlulxISD::BR_CC_FP";
-  default:            return NULL;
+  default: return NULL;
   }
 }
 
@@ -281,8 +279,7 @@ SDValue GlulxTargetLowering::LowerFormalArguments(
 bool GlulxTargetLowering::CanLowerReturn(CallingConv::ID CallConv,
                                 MachineFunction &MF, bool IsVarArg,
                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
-                                LLVMContext &Context) const
-{
+                                LLVMContext &Context) const {
   // Glulx can only handle returning single values.
   return Outs.size() <= 1;
 }
@@ -310,11 +307,11 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   CallingConv::ID CallConv = CLI.CallConv;
   if (!callingConvSupported(CallConv))
     fail(DL, DAG,
-         "WebAssembly doesn't support language-specific or target-specific "
+         "Glulx doesn't support language-specific or target-specific "
          "calling conventions yet");
 
   if (CLI.IsPatchPoint)
-    fail(DL, DAG, "WebAssembly doesn't support patch point yet");
+    fail(DL, DAG, "Glulx doesn't support patch point yet");
 
   // Analyze operands of the call, assigning locations to each operand.
   SmallVector<CCValAssign, 16> ArgLocs;
@@ -332,7 +329,7 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
     // Varargs calls cannot be tail calls because the buffer is on the stack
     if (IsVarArg)
-      NoTail("WebAssembly does not support varargs tail calls");
+      NoTail("Glulx does not support varargs tail calls");
 
     // If pointers to local stack values are passed, we cannot tail call
     if (CLI.CB) {
@@ -348,8 +345,7 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
           Val = Src;
         }
         if (isa<AllocaInst>(Val)) {
-          NoTail(
-              "WebAssembly does not support tail calling with stack arguments");
+          NoTail("Glulx does not support tail calling with stack arguments");
           break;
         }
       }
@@ -459,12 +455,11 @@ SDValue GlulxTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     assert(!In.Flags.isByVal() && "byval is not valid for return values");
     assert(!In.Flags.isNest() && "nest is not valid for return values");
     if (In.Flags.isInAlloca())
-      fail(DL, DAG, "WebAssembly hasn't implemented inalloca return values");
+      fail(DL, DAG, "Glulx hasn't implemented inalloca return values");
     if (In.Flags.isInConsecutiveRegs())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs return values");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs return values");
     if (In.Flags.isInConsecutiveRegsLast())
-      fail(DL, DAG,
-           "WebAssembly hasn't implemented cons regs last return values");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs last return values");
     // Ignore In.getNonZeroOrigAlign() because all our arguments are passed in
     // registers.
     InTys.push_back(In.VT);
@@ -609,11 +604,11 @@ GlulxTargetLowering::LowerReturn(SDValue Chain,
     assert(!Out.Flags.isNest() && "nest is not valid for return values");
     assert(Out.IsFixed && "non-fixed return value is not valid");
     if (Out.Flags.isInAlloca())
-      fail(DL, DAG, "WebAssembly hasn't implemented inalloca results");
+      fail(DL, DAG, "Glulx hasn't implemented inalloca results");
     if (Out.Flags.isInConsecutiveRegs())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs results");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs results");
     if (Out.Flags.isInConsecutiveRegsLast())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs last results");
+      fail(DL, DAG, "Glulx hasn't implemented cons regs last results");
   }
 
   return Chain;
@@ -754,10 +749,10 @@ SDValue GlulxTargetLowering::LowerBR_CC(SDValue Op,
                        {Chain, CCVal, LHS, RHS, TrueBB});
   }
 
-  bool LHSNotNaN = DAG.isKnownNeverNaN(LHS);
-  bool RHSNotNaN = DAG.isKnownNeverNaN(RHS);
+  bool LHSCouldBeNaN = !DAG.isKnownNeverNaN(LHS);
+  bool RHSCouldBeNaN = !DAG.isKnownNeverNaN(RHS);
 
-  if (CC == ISD::SETONE && (!LHSNotNaN || !RHSNotNaN)) {
+  if (CC == ISD::SETONE && (LHSCouldBeNaN || RHSCouldBeNaN)) {
     // Test non-NaN and unequal by checking both < and >.
     Chain = DAG.getNode(GlulxISD::BR_CC_FP, DL, MVT::Other,
                         {Chain, DAG.getCondCode(ISD::SETOLT),
@@ -771,10 +766,10 @@ SDValue GlulxTargetLowering::LowerBR_CC(SDValue Op,
   SDValue NewCC = DAG.getCondCode((ISD::CondCode) (CC & 0b0111));
 
   // If it's possible for an operand to be NaN, check and branch if so.
-  if (!LHSNotNaN)
+  if (LHSCouldBeNaN)
     Chain = DAG.getNode(GlulxISD::JISNAN, DL, MVT::Other,
                         Chain, LHS, TrueBB);
-  if (!RHSNotNaN)
+  if (RHSCouldBeNaN && (LHS != RHS))
     Chain = DAG.getNode(GlulxISD::JISNAN, DL, MVT::Other,
                         Chain, RHS, TrueBB);
   // If we reach this point, the operands are known not to be NaN.
@@ -866,8 +861,8 @@ static MachineBasicBlock *emitCatch(MachineInstr &MI,
                    std::next(MachineBasicBlock::iterator(MI)), BB->end());
   NoThrowMBB->transferSuccessorsAndUpdatePHIs(BB);
   // Next, add the throw-handling and fallthrough blocks as its successors.
-  BB->addSuccessor(ThrowMBB);
-  BB->addSuccessor(NoThrowMBB);
+  BB->addSuccessor(ThrowMBB, BranchProbability::getZero());
+  BB->addSuccessor(NoThrowMBB, BranchProbability::getOne());
 
   // Prepare flag indicating no throw occurred
   Register Zero = F->getRegInfo().createVirtualRegister(&Glulx::GPRRegClass);
@@ -893,7 +888,8 @@ static MachineBasicBlock *emitCatch(MachineInstr &MI,
   BuildMI(*BB, BB->begin(), DL, TII.get(Glulx::ASTORE))
       .addReg(Token)
       .addReg(TokenDst)
-      .addImm(0);
+      .addImm(0)
+      .cloneMemRefs(MI);
   BuildMI(*BB, BB->begin(), DL, TII.get(Glulx::PHI), RetVal)
       .addReg(Token)
       .addMBB(ThrowMBB)
