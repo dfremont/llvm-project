@@ -79,7 +79,7 @@ GlulxTargetLowering::GlulxTargetLowering(const TargetMachine &TM,
 
   // Expand FP operations not natively supported by Glulx.
   auto BadFloatOps = {
-      ISD::FNEG, ISD::FABS, ISD::FSQRT, ISD::FSIN, ISD::FCOS,
+      ISD::FNEG, ISD::FABS, ISD::FCOPYSIGN,
       ISD::FSINCOS, ISD::FMA, ISD::FP16_TO_FP, ISD::FP_TO_FP16,
       ISD::FNEARBYINT,
   };
@@ -707,9 +707,44 @@ SDValue GlulxTargetLowering::LowerSELECT_CC(SDValue Op,
   SDValue FalseV = Op.getOperand(3);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
   SDLoc DL(Op);
+  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
+
+  if (LHS.getValueType() == MVT::f32) {
+    // Glulx doesn't support all the floating-point comparisons we need.
+    // If necessary, transform the conditions into ones we can actually test.
+    switch (CC) {
+    case ISD::SETUEQ:
+      // Negate the condition so that we can use our code for SETONE below.
+      LLVM_FALLTHROUGH;
+    case ISD::SETO:
+    case ISD::SETUGT:
+    case ISD::SETUGE:
+    case ISD::SETULT:
+    case ISD::SETULE:
+      // Negate the condition to produce one we can directly test.
+      CC = ISD::getSetCCInverse(CC, LHS.getValueType());
+      std::swap(TrueV, FalseV);
+      break;
+
+    case ISD::SETONE:
+      // Handled below in case we arrive at SETONE by negating SETUEQ.
+      break;
+
+    default:
+      // All other comparisons can be done natively on Glulx.
+      break;
+    }
+
+    if (CC == ISD::SETONE) {
+      // Test non-NaN and unequal by checking both < and >.
+      CC = ISD::SETOLT;
+      SDValue CC2 = DAG.getConstant(ISD::SETOGT, DL, MVT::i32);
+      SDValue Ops[] = {LHS, RHS, CC2, TrueV, FalseV};
+      FalseV = DAG.getNode(GlulxISD::SELECT_CC, DL, VTs, Ops);
+    }
+  }
 
   SDValue TargetCC = DAG.getConstant(CC, DL, MVT::i32);
-  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
   SDValue Ops[] = {LHS, RHS, TargetCC, TrueV, FalseV};
 
   return DAG.getNode(GlulxISD::SELECT_CC, DL, VTs, Ops);
@@ -964,6 +999,7 @@ GlulxTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     SET_NEWCC(SETULT, JLTU);
     SET_NEWCC(SETLE, JLE);
     SET_NEWCC(SETULE, JLEU);
+    SET_NEWCC(SETUO, JISNAN); // handled specially below
     SET_NEWCC(SETOEQ, JFEQ);
     SET_NEWCC(SETUNE, JFNE);
     SET_NEWCC(SETOLT, JFLT);
@@ -971,12 +1007,18 @@ GlulxTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     SET_NEWCC(SETOGT, JFGT);
     SET_NEWCC(SETOGE, JFGE);
   default:
-    report_fatal_error("unimplemented select CondCode " + Twine(CC));
+    report_fatal_error("unexpected SELECT CondCode " + Twine(CC));
   }
 
   const MachineOperand &LHS = MI.getOperand(1);
   const MachineOperand &RHS = MI.getOperand(2);
-  BuildMI(BB, DL, TII.get(NewCC)).add(LHS).add(RHS).addMBB(Copy1MBB);
+  auto &MID = TII.get(NewCC);
+  if (CC != ISD::SETUO) {
+    BuildMI(BB, DL, MID).add(LHS).add(RHS).addMBB(Copy1MBB);
+  } else {
+    BuildMI(BB, DL, MID).add(LHS).addMBB(Copy1MBB);
+    BuildMI(BB, DL, MID).add(RHS).addMBB(Copy1MBB);
+  }
 
   // Copy0MBB:
   //  %FalseValue = ...

@@ -158,11 +158,11 @@ def POW   : FALU2<0x1AB, "pow", fpow>;
 def SIN   : FALU1<0x1B0, "sin", fsin>;
 def COS   : FALU1<0x1B1, "cos", fcos>;
 // no nodes for these in SelectionDAG
-//def TAN   : FALU1<0x1B2, "tan", ...>;
-//def ASIN  : FALU1<0x1B3, "asin", ...>;
-//def ACOS  : FALU1<0x1B4, "acos", ...>;
-//def ATAN  : FALU1<0x1B5, "atan", ...>;
-//def ATAN2  : FALU2<0x1B6, "atan2", ...>;
+def TAN   : FALU1<0x1B2, "tan", int_glulx_tan>;
+def ASIN  : FALU1<0x1B3, "asin", int_glulx_asin>;
+def ACOS  : FALU1<0x1B4, "acos", int_glulx_acos>;
+def ATAN  : FALU1<0x1B5, "atan", int_glulx_atan>;
+def ATAN2  : FALU2<0x1B6, "atan2", int_glulx_atan2>;
 
 // Moves, loads, and stores
 
@@ -628,3 +628,13 @@ defm GESTALT : Int12<0x100, "gestalt", int_glulx_gestalt>;
 defm DEBUGTRAP : Int01<0x101, "debugtrap", int_glulx_debugtrap>;
 defm GLK : Int12<0x130, "glk", int_glulx_glk>;
 
+// Floating-point math (not already covered above)
+
+def : Pat<(int_glulx_ceil anyf32:$v1), (CEIL anyf32:$v1)>;
+def : Pat<(int_glulx_floor anyf32:$v1), (FLOOR anyf32:$v1)>;
+def : Pat<(int_glulx_sqrt anyf32:$v1), (SQRT anyf32:$v1)>;
+def : Pat<(int_glulx_exp anyf32:$v1), (EXP anyf32:$v1)>;
+def : Pat<(int_glulx_log anyf32:$v1), (LOG anyf32:$v1)>;
+def : Pat<(int_glulx_pow anyf32:$v1, anyf32:$v2), (POW anyf32:$v1, anyf32:$v2)>;
+def : Pat<(int_glulx_sin anyf32:$v1), (SIN anyf32:$v1)>;
+def : Pat<(int_glulx_cos anyf32:$v1), (COS anyf32:$v1)>;

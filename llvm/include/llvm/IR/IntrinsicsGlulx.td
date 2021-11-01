@@ -77,6 +77,62 @@ def int_glulx_debugtrap : GCCBuiltin<"__debugtrap">,
 def int_glulx_glk : GCCBuiltin<"__glk">,
     Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty], []>;
 
+// Floating-point math
+
+def int_glulx_ceil : GCCBuiltin<"__ceil">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_floor : GCCBuiltin<"__floor">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_sqrt : GCCBuiltin<"__sqrt">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_exp : GCCBuiltin<"__exp">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_log : GCCBuiltin<"__log">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_pow : GCCBuiltin<"__pow">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty, llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_sin : GCCBuiltin<"__sin">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_cos : GCCBuiltin<"__cos">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_tan : GCCBuiltin<"__tan">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_asin : GCCBuiltin<"__asin">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_acos : GCCBuiltin<"__acos">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_atan : GCCBuiltin<"__atan">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty],
+              [IntrNoMem]>;
+
+def int_glulx_atan2 : GCCBuiltin<"__atan2">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty, llvm_float_ty],
+              [IntrNoMem]>;
+
+// Convenient intrinsics not corresponding exactly to opcodes
+
 def int_glulx_push : GCCBuiltin<"__push">,
     Intrinsic<[], [llvm_i32_ty], [IntrNoMem, IntrHasSideEffects]>;
 
