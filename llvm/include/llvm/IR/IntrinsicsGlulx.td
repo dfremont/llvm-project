@@ -131,6 +131,19 @@ def int_glulx_atan2 : GCCBuiltin<"__atan2">,
     Intrinsic<[llvm_float_ty], [llvm_float_ty, llvm_float_ty],
               [IntrNoMem]>;
 
+// Block copy and clear
+
+def int_glulx_mzero : GCCBuiltin<"__mzero">,
+    Intrinsic<[], [llvm_i32_ty, llvm_ptr_ty],
+              [IntrWriteMem, IntrArgMemOnly,
+               NoCapture<ArgIndex<1>>, WriteOnly<ArgIndex<1>>]>;
+
+def int_glulx_mcopy : GCCBuiltin<"__mcopy">,
+    Intrinsic<[], [llvm_i32_ty, llvm_ptr_ty, llvm_ptr_ty],
+              [IntrArgMemOnly,
+               NoCapture<ArgIndex<1>>, ReadOnly<ArgIndex<1>>,
+               NoCapture<ArgIndex<2>>, WriteOnly<ArgIndex<2>>]>;
+
 // Convenient intrinsics not corresponding exactly to opcodes
 
 def int_glulx_push : GCCBuiltin<"__push">,

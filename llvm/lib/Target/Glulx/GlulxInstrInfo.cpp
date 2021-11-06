@@ -163,8 +163,7 @@ MachineInstr *GlulxInstrInfo::foldMemoryOperandImpl(
     MachineBasicBlock::iterator InsertPt, MachineInstr &LoadMI,
     LiveIntervals *LIS) const {
   // We only handle folding of the copy instruction, for now.
-  unsigned LoadOpcode = LoadMI.getOpcode();
-  assert(LoadOpcode == Glulx::copy_mr);
+  assert(LoadMI.getOpcode() == Glulx::copy_mr);
 
   // Some optimization passes assume COPY has only reg operands.
   if (MI.getOpcode() == Glulx::COPY)

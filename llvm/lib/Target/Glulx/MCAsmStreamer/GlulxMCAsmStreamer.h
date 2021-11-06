@@ -19,6 +19,9 @@
 using namespace llvm;
 
 class GlulxMCAsmStreamer : public MCAsmStreamer {
+private:
+  bool EOLPending = false;
+
 public:
   GlulxMCAsmStreamer(MCContext &Context, std::unique_ptr<formatted_raw_ostream> os,
                 bool isVerboseAsm, bool useDwarfDirectory,

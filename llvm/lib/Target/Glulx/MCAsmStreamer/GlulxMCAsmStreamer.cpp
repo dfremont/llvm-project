@@ -13,6 +13,11 @@
 void GlulxMCAsmStreamer::emitLabel(MCSymbol *Symbol, SMLoc Loc) {
   MCStreamer::emitLabel(Symbol, Loc);
 
+  if (EOLPending) {   // glasm can't handle multiple labels on the same line
+    EOLPending = false;
+    OS << "\n";
+  }
+
   OS << ":";
   Symbol->print(OS, MAI);
   OS << MAI->getLabelSuffix();
@@ -22,6 +27,8 @@ void GlulxMCAsmStreamer::emitLabel(MCSymbol *Symbol, SMLoc Loc) {
   if (!CommentToEmit.empty()) {
     OS << '\n';   // extra newline to separate BB labels from comments for glasm
     EmitEOL();
+  } else {
+    EOLPending = true;
   }
 }
 

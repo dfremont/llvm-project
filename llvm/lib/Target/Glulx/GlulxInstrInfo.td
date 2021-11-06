@@ -521,13 +521,15 @@ foreach ty3 = [anyi32, anyf32] in {
 
 let mayLoad = 1, mayStore = 1 in
 def MCOPY : GlulxInst<0x171, "mcopy", "$size, $src, $dst",
-                    (outs), (ins GPR:$size, GPR:$src, GPR:$dst)>;
+                      (outs), (ins GPR:$size, GPR:$src, GPR:$dst),
+                      [(int_glulx_mcopy anyi32:$size, addr:$src, addr:$dst)]>;
 def : Pat<(memcpy anyi32:$size, addr:$src, addr:$dst),
           (MCOPY anyi32:$size, addr:$src, addr:$dst)>;
 
 let mayStore = 1 in
 def MZERO : GlulxInst<0x170, "mzero", "$size, $dst",
-                    (outs), (ins GPR:$size, GPR:$dst)>;
+                      (outs), (ins GPR:$size, GPR:$dst),
+                      [(int_glulx_mzero anyi32:$size, addr:$dst)]>;
 def : Pat<(memclr anyi32:$size, addr:$dst),
           (MZERO anyi32:$size, addr:$dst)>;
 

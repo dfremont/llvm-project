@@ -56,6 +56,9 @@ BUILTIN(__acos, "ff", "nc")
 BUILTIN(__atan, "ff", "nc")
 BUILTIN(__atan2, "fff", "nc")
 
+BUILTIN(__mzero, "vzv*", "n")
+BUILTIN(__mcopy, "vzvC*v*", "n")
+
 BUILTIN(__push, "vi", "n")
 BUILTIN(__pop, "i", "n")
 
