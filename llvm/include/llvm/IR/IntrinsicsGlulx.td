@@ -144,6 +144,29 @@ def int_glulx_mcopy : GCCBuiltin<"__mcopy">,
                NoCapture<ArgIndex<1>>, ReadOnly<ArgIndex<1>>,
                NoCapture<ArgIndex<2>>, WriteOnly<ArgIndex<2>>]>;
 
+// Searching
+
+def int_glulx_linearsearch : GCCBuiltin<"__linearsearch">,
+    Intrinsic<[llvm_ptr_ty],
+              [llvm_i32_ty, llvm_i32_ty, llvm_ptr_ty, llvm_i32_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+              [IntrReadMem,
+               NoCapture<ArgIndex<2>>, ReadOnly<ArgIndex<2>>]>;
+
+def int_glulx_binarysearch : GCCBuiltin<"__binarysearch">,
+    Intrinsic<[llvm_ptr_ty],
+              [llvm_i32_ty, llvm_i32_ty, llvm_ptr_ty, llvm_i32_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+              [IntrReadMem,
+               NoCapture<ArgIndex<2>>, ReadOnly<ArgIndex<2>>]>;
+
+def int_glulx_linkedsearch : GCCBuiltin<"__linkedsearch">,
+    Intrinsic<[llvm_ptr_ty],
+              [llvm_i32_ty, llvm_i32_ty, llvm_ptr_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+              [IntrReadMem,
+               NoCapture<ArgIndex<2>>, ReadOnly<ArgIndex<2>>]>;
+
 // Convenient intrinsics not corresponding exactly to opcodes
 
 def int_glulx_push : GCCBuiltin<"__push">,

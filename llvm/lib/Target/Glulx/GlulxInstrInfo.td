@@ -533,6 +533,30 @@ def MZERO : GlulxInst<0x170, "mzero", "$size, $dst",
 def : Pat<(memclr anyi32:$size, addr:$dst),
           (MZERO anyi32:$size, addr:$dst)>;
 
+// Searching
+let mayLoad = 1 in {
+def LINEARSEARCH : GlulxInst<0x150, "linearsearch",
+    "$key, $ksize, $start, $ssize, $num, $keyoffset, $options, $res",
+    (outs GPR:$res), (ins GPR:$key, GPR:$ksize, GPR:$start, GPR:$ssize,
+                          GPR:$num, GPR:$keyoffset, GPR:$options),
+    [(set GPR:$res, (int_glulx_linearsearch anyi32:$key, anyi32:$ksize, addr:$start,
+        anyi32:$ssize, anyi32:$num, anyi32:$keyoffset, anyi32:$options))]>;
+
+def BINARYSEARCH : GlulxInst<0x151, "binarysearch",
+    "$key, $ksize, $start, $ssize, $num, $keyoffset, $options, $res",
+    (outs GPR:$res), (ins GPR:$key, GPR:$ksize, GPR:$start, GPR:$ssize,
+                          GPR:$num, GPR:$keyoffset, GPR:$options),
+    [(set GPR:$res, (int_glulx_binarysearch anyi32:$key, anyi32:$ksize, addr:$start,
+        anyi32:$ssize, anyi32:$num, anyi32:$keyoffset, anyi32:$options))]>;
+
+def LINKEDSEARCH : GlulxInst<0x152, "linkedsearch",
+    "$key, $ksize, $start, $keyoffset, $nextoffset, $options, $res",
+    (outs GPR:$res), (ins GPR:$key, GPR:$ksize, GPR:$start, GPR:$keyoffset,
+                          GPR:$nextoffset, GPR:$options),
+    [(set GPR:$res, (int_glulx_linkedsearch anyi32:$key, anyi32:$ksize, addr:$start,
+        anyi32:$keyoffset, anyi32:$nextoffset, anyi32:$options))]>;
+}
+
 // Multiclasses for intrinsics
 
 multiclass Int00<int Opc, string OpcodeStr, Intrinsic intrinsic> {

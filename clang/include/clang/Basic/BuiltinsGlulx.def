@@ -59,6 +59,10 @@ BUILTIN(__atan2, "fff", "nc")
 BUILTIN(__mzero, "vzv*", "n")
 BUILTIN(__mcopy, "vzvC*v*", "n")
 
+BUILTIN(__linearsearch, "v*izvC*zzzUi", "n")
+BUILTIN(__binarysearch, "v*UizvC*zzzUi", "n")
+BUILTIN(__linkedsearch, "v*izvC*zzUi", "n")
+
 BUILTIN(__push, "vi", "n")
 BUILTIN(__pop, "i", "n")
 
