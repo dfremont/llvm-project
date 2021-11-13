@@ -229,6 +229,10 @@ bool GlulxAsmPrinter::lowerOperand(const MachineOperand &MO,
     MCOp = LowerSymbolOperand(MO, GetBlockAddressSymbol(MO.getBlockAddress()));
     break;
 
+  case MachineOperand::MO_JumpTableIndex:
+    MCOp = LowerSymbolOperand(MO, GetJTISymbol(MO.getIndex()));
+    break;
+
   case MachineOperand::MO_ExternalSymbol:
     MCOp = LowerSymbolOperand(MO, GetExternalSymbolSymbol(MO.getSymbolName()));
     break;

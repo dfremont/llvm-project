@@ -113,10 +113,9 @@ GlulxTargetLowering::GlulxTargetLowering(const TargetMachine &TM,
   // point comparisons, so we have to legalize them ourselves.
   setOperationAction(ISD::BR_CC, MVT::f32, Custom);
 
-  // Expand jump tables.
-  setOperationAction(ISD::JumpTable, MVT::Other, Expand);
+  // Expand jump tables to BRIND.
+  setOperationAction(ISD::JumpTable, MVT::i32, Custom);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
-  setOperationAction(ISD::BRIND, MVT::Other, Expand);
 
   // Take the default expansion for va_arg, va_copy, and va_end. There is no
   // default action for va_start, so we do that custom.
@@ -671,6 +670,14 @@ SDValue GlulxTargetLowering::LowerFrameIndex(SDValue Op,
   return DAG.getTargetFrameIndex(FI, Op.getValueType());
 }
 
+SDValue GlulxTargetLowering::LowerJumpTable(SDValue Op,
+                                            SelectionDAG &DAG) const {
+  JumpTableSDNode *JT = cast<JumpTableSDNode>(Op);
+  auto PtrVT = getPointerTy(DAG.getDataLayout());
+  SDValue Result = DAG.getTargetJumpTable(JT->getIndex(), PtrVT);
+  return DAG.getNode(GlulxISD::GA_WRAPPER, SDLoc(JT), PtrVT, Result);
+}
+
 SDValue GlulxTargetLowering::LowerCopyToReg(SDValue Op,
                                             SelectionDAG &DAG) const {
   SDValue Src = Op.getOperand(2);
@@ -848,6 +855,7 @@ GlulxTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::BlockAddress:         return LowerBlockAddress(Op, DAG);
   case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
   case ISD::FrameIndex:           return LowerFrameIndex(Op, DAG);
+  case ISD::JumpTable:            return LowerJumpTable(Op, DAG);
   case ISD::CopyToReg:            return LowerCopyToReg(Op, DAG);
   case ISD::ConstantPool:         return LowerConstantPool(Op, DAG);
   case ISD::RETURNADDR:           return LowerRETURNADDR(Op, DAG);

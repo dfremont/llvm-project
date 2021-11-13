@@ -18,6 +18,9 @@ public:
   GlulxTargetObjectFile();
   ~GlulxTargetObjectFile() override = default;
 
+  MCSection *getSectionForJumpTable(const Function &F,
+                                    const TargetMachine &TM) const override;
+
   MCSection *SelectSectionForGlobal(const GlobalObject *GO, SectionKind Kind,
                                     const TargetMachine &TM) const override;
   MCSection *getExplicitSectionGlobal(const GlobalObject *GO, SectionKind Kind,

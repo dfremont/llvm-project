@@ -17,6 +17,13 @@ using namespace llvm;
 GlulxTargetObjectFile::GlulxTargetObjectFile()
     : TargetLoweringObjectFile() {}
 
+MCSection *GlulxTargetObjectFile::getSectionForJumpTable(
+    const Function &F, const TargetMachine &TM) const {
+  // Otherwise would use data section, which is in RAM.
+  // FIXME once we have a proper ReadOnly section.
+  return getContext().getObjectFileInfo()->getTextSection();
+}
+
 MCSection *GlulxTargetObjectFile::getExplicitSectionGlobal(
     const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
   return SelectSectionForGlobal(GO, Kind, TM);
