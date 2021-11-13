@@ -105,15 +105,19 @@ class ALU2<bits<8> opcode, string opcodestr, SDPatternOperator OpNode>
                  (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                  [(set I32:$rd, (OpNode anyi32:$rs1, anyi32:$rs2))]>;
 
+let isCommutable = 1 in
 def ADD  : ALU2<0x10, "add", add>;
 def SUB  : ALU2<0x11, "sub", sub>;
+let isCommutable = 1 in
 def MUL  : ALU2<0x12, "mul", mul>;
 def DIV  : ALU2<0x13, "div", sdiv>;
 def MOD  : ALU2<0x14, "mod", srem>;
 def NEG  : ALU1<0x15, "neg", ineg>;
+let isCommutable = 1 in {
 def AND  : ALU2<0x18, "bitand", and>;
 def OR   : ALU2<0x19, "bitor", or>;
 def XOR  : ALU2<0x1a, "bitxor", xor>;
+}
 def NOT  : ALU1<0x1b, "bitnot", not>;
 def SHL  : ALU2<0x1c, "shiftl", shl>;
 def SSHR : ALU2<0x1d, "sshiftr", sra>;
@@ -144,8 +148,10 @@ def FTONUMZ : GlulxInst2<0x191, "ftonumz", "$rs, $rd",
 
 def CEIL  : FALU1<0x198, "ceil", fceil>;
 def FLOOR : FALU1<0x199, "floor", ffloor>;
+let isCommutable = 1 in
 def FADD  : FALU2<0x1A0, "fadd", fadd>;
 def FSUB  : FALU2<0x1A1, "fsub", fsub>;
+let isCommutable = 1 in
 def FMUL  : FALU2<0x1A2, "fmul", fmul>;
 def FDIV  : FALU2<0x1A3, "fdiv", fdiv>;
 def FMOD  : FALU2<0x1A4, "fmod", frem>;
