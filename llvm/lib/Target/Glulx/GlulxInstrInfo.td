@@ -533,7 +533,20 @@ def MZERO : GlulxInst<0x170, "mzero", "$size, $dst",
 def : Pat<(memclr anyi32:$size, addr:$dst),
           (MZERO anyi32:$size, addr:$dst)>;
 
+// Random number generator
+
+let hasSideEffects = 1 in
+def RANDOM : GlulxInst<0x110, "random", "$range, $res",
+    (outs GPR:$res), (ins GPR:$range),
+    [(set GPR:$res, (int_glulx_random anyi32:$range))]>;
+
+let hasSideEffects = 1 in
+def SETRANDOM : GlulxInst<0x111, "setrandom", "$seed",
+    (outs), (ins GPR:$seed),
+    [(int_glulx_setrandom anyi32:$seed)]>;
+
 // Searching
+
 let mayLoad = 1 in {
 def LINEARSEARCH : GlulxInst<0x150, "linearsearch",
     "$key, $ksize, $start, $ssize, $num, $keyoffset, $options, $res",
@@ -555,6 +568,18 @@ def LINKEDSEARCH : GlulxInst<0x152, "linkedsearch",
                           GPR:$nextoffset, GPR:$options),
     [(set GPR:$res, (int_glulx_linkedsearch anyi32:$key, anyi32:$ksize, addr:$start,
         anyi32:$keyoffset, anyi32:$nextoffset, anyi32:$options))]>;
+}
+
+// Accelerated functions
+
+let hasSideEffects = 1 in {
+def ACCELFUNC : GlulxInst<0x180, "accelfunc", "$num, $func",
+    (outs), (ins GPR:$num, GPR:$func),
+    [(int_glulx_accelfunc anyi32:$num, addr:$func)]>;
+
+def ACCELPARAM : GlulxInst<0x181, "accelparam", "$num, $val",
+    (outs), (ins GPR:$num, GPR:$val),
+    [(int_glulx_accelparam anyi32:$num, anyi32:$val)]>;
 }
 
 // Multiclasses for intrinsics
@@ -644,9 +669,60 @@ defm STREAMNUM : Int01<0x71, "streamnum", int_glulx_streamnum>;
 defm STREAMSTR : Int01<0x72, "streamstr", int_glulx_streamstr>;
 defm STREAMUNICHAR : Int01<0x73, "streamunichar", int_glulx_streamunichar>;
 
+def GETSTRINGTBL: GlulxInst<0x140, "getstringtbl", "$res",
+    (outs GPR:$res), (ins),
+    [(set GPR:$res, (int_glulx_getstringtbl))]>;
+
+let hasSideEffects = 1 in
+def SETSTRINGTBL : GlulxInst<0x141, "setstringtbl", "$tbl",
+    (outs), (ins GPR:$tbl),
+    [(int_glulx_setstringtbl addr:$tbl)]>;
+
 // Game state
 
+let isBarrier = 1, isTerminator = 1, hasSideEffects = 1 in {
 defm QUIT : Int00<0x120, "quit", int_glulx_quit>;
+
+def RESTART : GlulxInst<0x122, "restart", "", (outs), (ins),
+    [(int_glulx_restart)]>;
+}
+
+let mayLoad = 1, mayStore = 1, hasSideEffects = 1 in {
+def SAVE : GlulxInst<0x123, "save", "$stream, $res",
+    (outs GPR:$res), (ins GPR:$stream),
+    [(set GPR:$res, (int_glulx_save anyi32:$stream))]>;
+
+def SAVEUNDO : GlulxInst<0x125, "saveundo", "$res",
+    (outs GPR:$res), (ins),
+    [(set GPR:$res, (int_glulx_saveundo))]>;
+}
+
+let hasSideEffects = 1 in {
+def RESTORE : GlulxInst<0x124, "restore", "$stream, $res",
+    (outs GPR:$res), (ins GPR:$stream),
+    [(set GPR:$res, (int_glulx_restore anyi32:$stream))]>;
+
+def RESTOREUNDO : GlulxInst<0x126, "restoreundo", "$res",
+    (outs GPR:$res), (ins),
+    [(set GPR:$res, (int_glulx_restoreundo))]>;
+}
+
+def HASUNDO : GlulxInst<0x128, "hasundo", "$res",
+    (outs GPR:$res), (ins),
+    [(set GPR:$res, (int_glulx_hasundo))]>;
+
+let hasSideEffects = 1 in
+def DISCARDUNDO : GlulxInst<0x129, "discardundo", "",
+    (outs), (ins), [(int_glulx_discardundo)]>;
+
+let hasSideEffects = 1 in
+def PROTECT : GlulxInst<0x127, "protect", "$start, $len",
+    (outs), (ins GPR:$start, GPR:$len),
+    [(int_glulx_protect addr:$start, anyi32:$len)]>;
+
+def VERIFY : GlulxInst<0x121, "verify", "$res",
+    (outs GPR:$res), (ins),
+    [(set GPR:$res, (int_glulx_verify))]>;
 
 // Miscellaneous
 

@@ -42,11 +42,42 @@ def int_glulx_mfree : GCCBuiltin<"__mfree">,
     Intrinsic<[], [llvm_ptr_ty],
               [IntrInaccessibleMemOrArgMemOnly, NoCapture<ArgIndex<0>>]>;
 
+// Game state
+
+def int_glulx_quit : GCCBuiltin<"__quit">,
+    Intrinsic<[], [], [IntrNoReturn]>;
+
+def int_glulx_restart : GCCBuiltin<"__restart">,
+    Intrinsic<[], [], [IntrNoReturn]>;
+
+def int_glulx_save : GCCBuiltin<"__save">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty], []>;
+
+def int_glulx_restore : GCCBuiltin<"__restore">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty], []>;
+
+def int_glulx_saveundo : GCCBuiltin<"__saveundo">,
+    Intrinsic<[llvm_i32_ty], [], []>;
+
+def int_glulx_restoreundo : GCCBuiltin<"__restoreundo">,
+    Intrinsic<[llvm_i32_ty], [], []>;
+
+def int_glulx_hasundo : GCCBuiltin<"__hasundo">,
+    Intrinsic<[llvm_i32_ty], [], [IntrInaccessibleMemOnly]>;
+
+def int_glulx_discardundo : GCCBuiltin<"__discardundo">,
+    Intrinsic<[], [], [IntrInaccessibleMemOnly]>;
+
+def int_glulx_protect : GCCBuiltin<"__protect">,
+    Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], [IntrInaccessibleMemOnly]>;
+
+def int_glulx_verify : GCCBuiltin<"__verify">,
+    Intrinsic<[llvm_i32_ty], [], [IntrNoMem]>;
+
 // Output
 
 def int_glulx_setiosys : GCCBuiltin<"__setiosys">,
-    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty],
-              [IntrNoMem, IntrHasSideEffects]>;
+    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOnly]>;
 
 def int_glulx_streamchar : GCCBuiltin<"__streamchar">,
     Intrinsic<[], [llvm_i32_ty], []>;
@@ -60,22 +91,12 @@ def int_glulx_streamstr : GCCBuiltin<"__streamstr">,
 def int_glulx_streamunichar : GCCBuiltin<"__streamunichar">,
     Intrinsic<[], [llvm_i32_ty], []>;
 
-// Game state
+def int_glulx_getstringtbl : GCCBuiltin<"__getstringtbl">,
+    Intrinsic<[llvm_ptr_ty], [], [IntrInaccessibleMemOnly]>;
 
-def int_glulx_quit : GCCBuiltin<"__quit">,
-    Intrinsic<[], [], [IntrNoReturn]>;
-
-// Miscellaneous
-
-def int_glulx_gestalt : GCCBuiltin<"__gestalt">,
-    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty],
-              [IntrReadMem]>;
-
-def int_glulx_debugtrap : GCCBuiltin<"__debugtrap">,
-    Intrinsic<[], [llvm_i32_ty], []>;
-
-def int_glulx_glk : GCCBuiltin<"__glk">,
-    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty], []>;
+def int_glulx_setstringtbl : GCCBuiltin<"__setstringtbl">,
+    Intrinsic<[], [llvm_ptr_ty],
+              [IntrInaccessibleMemOrArgMemOnly, ReadOnly<ArgIndex<0>>]>;
 
 // Floating-point math
 
@@ -131,6 +152,14 @@ def int_glulx_atan2 : GCCBuiltin<"__atan2">,
     Intrinsic<[llvm_float_ty], [llvm_float_ty, llvm_float_ty],
               [IntrNoMem]>;
 
+// Random number generator
+
+def int_glulx_random : GCCBuiltin<"__random">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty], [IntrInaccessibleMemOnly]>;
+
+def int_glulx_setrandom : GCCBuiltin<"__setrandom">,
+    Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOnly]>;
+
 // Block copy and clear
 
 def int_glulx_mzero : GCCBuiltin<"__mzero">,
@@ -166,6 +195,28 @@ def int_glulx_linkedsearch : GCCBuiltin<"__linkedsearch">,
                llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
               [IntrReadMem,
                NoCapture<ArgIndex<2>>, ReadOnly<ArgIndex<2>>]>;
+
+// Accelerated functions
+
+def int_glulx_accelfunc : GCCBuiltin<"__accelfunc">,
+    Intrinsic<[], [llvm_i32_ty, llvm_ptr_ty],
+              [IntrNoMem, IntrHasSideEffects]>;
+
+def int_glulx_accelparam : GCCBuiltin<"__accelparam">,
+    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty],
+              [IntrNoMem, IntrHasSideEffects]>;
+
+// Miscellaneous
+
+def int_glulx_gestalt : GCCBuiltin<"__gestalt">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty],
+              [IntrReadMem]>;
+
+def int_glulx_debugtrap : GCCBuiltin<"__debugtrap">,
+    Intrinsic<[], [llvm_i32_ty], []>;
+
+def int_glulx_glk : GCCBuiltin<"__glk">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty], []>;
 
 // Convenient intrinsics not corresponding exactly to opcodes
 

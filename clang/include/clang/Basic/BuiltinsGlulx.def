@@ -30,17 +30,24 @@ BUILTIN(__throw, "vii", "nr")
 BUILTIN(__malloc, "v*z", "n")
 BUILTIN(__mfree, "vv*", "n")
 
+BUILTIN(__quit, "v", "nr")
+BUILTIN(__restart, "v", "nr")
+BUILTIN(__save, "iUi", "nj")
+BUILTIN(__restore, "iUi", "n")
+BUILTIN(__saveundo, "i", "nj")
+BUILTIN(__restoreundo, "i", "n")
+BUILTIN(__hasundo, "i", "n")
+BUILTIN(__discardundo, "v", "n")
+BUILTIN(__protect, "vvC*z", "n")
+BUILTIN(__verify, "i", "nc")
+
 BUILTIN(__setiosys, "vii", "")
 BUILTIN(__streamchar, "vUi", "")
 BUILTIN(__streamnum, "vi", "")
 BUILTIN(__streamstr, "vv*", "")
 BUILTIN(__streamunichar, "vUi", "")
-
-BUILTIN(__quit, "v", "nr")
-
-BUILTIN(__gestalt, "iii", "nc")
-BUILTIN(__debugtrap, "vi", "n")
-BUILTIN(__glk, "iii", "")
+BUILTIN(__getstringtbl, "v*", "n")
+BUILTIN(__setstringtbl, "vv*", "n")
 
 BUILTIN(__ceil, "ff", "nc")
 BUILTIN(__floor, "ff", "nc")
@@ -56,12 +63,22 @@ BUILTIN(__acos, "ff", "nc")
 BUILTIN(__atan, "ff", "nc")
 BUILTIN(__atan2, "fff", "nc")
 
+BUILTIN(__random, "ii", "n")
+BUILTIN(__setrandom, "vi", "n")
+
 BUILTIN(__mzero, "vzv*", "n")
 BUILTIN(__mcopy, "vzvC*v*", "n")
 
 BUILTIN(__linearsearch, "v*izvC*zzzUi", "n")
 BUILTIN(__binarysearch, "v*UizvC*zzzUi", "n")
 BUILTIN(__linkedsearch, "v*izvC*zzUi", "n")
+
+BUILTIN(__accelfunc, "vUivC*", "n")
+BUILTIN(__accelparam, "vUii", "n")
+
+BUILTIN(__gestalt, "iii", "nc")
+BUILTIN(__debugtrap, "vi", "n")
+BUILTIN(__glk, "iii", "")
 
 BUILTIN(__push, "vi", "n")
 BUILTIN(__pop, "i", "n")
