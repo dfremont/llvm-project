@@ -21,15 +21,14 @@ public:
   GlulxTargetStreamer(MCStreamer &S);
 };
 
-// This part is for ascii assembly output
 class GlulxTargetAsmStreamer : public GlulxTargetStreamer {
 public:
-  GlulxTargetAsmStreamer(MCStreamer &S, formatted_raw_ostream &OS);
+  GlulxTargetAsmStreamer(MCStreamer &S);
 
   void changeSection(const MCSection *CurSection, MCSection *Section,
                      const MCExpr *SubSection, raw_ostream &OS) override;
   void emitValue(const MCExpr *Value) override;
 };
 
-}
+} // namespace llvm
 #endif

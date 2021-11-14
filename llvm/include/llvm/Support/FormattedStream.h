@@ -18,6 +18,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include <utility>
 
+class GlulxStreamMultiplexer;
+
 namespace llvm {
 
 /// formatted_raw_ostream - A raw_ostream that wraps another one and keeps track
@@ -165,6 +167,8 @@ private:
     else
       TheStream->SetUnbuffered();
   }
+
+  friend class ::GlulxStreamMultiplexer;  // FIXME abjure this awful hack
 };
 
 /// fouts() - This returns a reference to a formatted_raw_ostream for

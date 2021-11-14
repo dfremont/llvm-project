@@ -69,7 +69,7 @@ static MCTargetStreamer *createGlulxMCTargetStreamer(MCStreamer &S,
                                                      formatted_raw_ostream &OS,
                                                      MCInstPrinter *InstPrint,
                                                      bool IsVerboseAsm) {
-  return new GlulxTargetAsmStreamer(S, OS);
+  return new GlulxTargetAsmStreamer(S);
 }
 
 extern "C" void LLVMInitializeGlulxTargetMC() {

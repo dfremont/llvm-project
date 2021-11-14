@@ -21,6 +21,7 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetLowering.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCContext.h"
@@ -123,52 +124,51 @@ void GlulxAsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
     HI.Handler->setSymbolSize(GVSym, Size);
   }
 
-//  // Handle common symbols
-//  if (GVKind.isCommon()) {
-//    if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
-//    // .comm _foo, 42, 4
-//    const bool SupportsAlignment =
-//        getObjFileLowering().getCommDirectiveSupportsAlignment();
-//    OutStreamer->emitCommonSymbol(GVSym, Size,
-//                                  SupportsAlignment ? Alignment.value() : 0);
-//    return;
-//  }
+  // Handle common symbols
+  if (GVKind.isCommon()) {
+    if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
+    // .comm _foo, 42, 4
+    const bool SupportsAlignment =
+        getObjFileLowering().getCommDirectiveSupportsAlignment();
+    OutStreamer->emitCommonSymbol(GVSym, Size,
+                                  SupportsAlignment ? Alignment.value() : 0);
+    return;
+  }
 
   // Determine to which section this global should be emitted.
   MCSection *TheSection = getObjFileLowering().SectionForGlobal(GV, GVKind, TM);
 
-//  // If this is a BSS local symbol and we are emitting in the BSS
-//  // section use .lcomm/.comm directive.
-//  if (GVKind.isBSSLocal() &&
-//      getObjFileLowering().getBSSSection() == TheSection) {
-//    if (Size == 0)
-//      Size = 1; // .comm Foo, 0 is undefined, avoid it.
-//
-//    // Use .lcomm only if it supports user-specified alignment.
-//    // Otherwise, while it would still be correct to use .lcomm in some
-//    // cases (e.g. when Align == 1), the external assembler might enfore
-//    // some -unknown- default alignment behavior, which could cause
-//    // spurious differences between external and integrated assembler.
-//    // Prefer to simply fall back to .local / .comm in this case.
-//    if (MAI->getLCOMMDirectiveAlignmentType() != LCOMM::NoAlignment) {
-//      // .lcomm _foo, 42
-//      OutStreamer->emitLocalCommonSymbol(GVSym, Size, Alignment.value());
-//      return;
-//    }
-//
-//    // .local _foo
-//    OutStreamer->emitSymbolAttribute(GVSym, MCSA_Local);
-//    // .comm _foo, 42, 4
-//    const bool SupportsAlignment =
-//        getObjFileLowering().getCommDirectiveSupportsAlignment();
-//    OutStreamer->emitCommonSymbol(GVSym, Size,
-//                                  SupportsAlignment ? Alignment.value() : 0);
-//    return;
-//  }
-
   MCSymbol *EmittedInitSym = GVSym;
 
   OutStreamer->SwitchSection(TheSection);
+
+  // Handle BSS globals.
+  if (GVKind.isBSS() &&
+      getObjFileLowering().getBSSSection() == TheSection) {
+    if (Size == 0)
+      Size = 1; // .comm Foo, 0 is undefined, avoid it.
+
+    // Use .lcomm only if it supports user-specified alignment.
+    // Otherwise, while it would still be correct to use .lcomm in some
+    // cases (e.g. when Align == 1), the external assembler might enfore
+    // some -unknown- default alignment behavior, which could cause
+    // spurious differences between external and integrated assembler.
+    // Prefer to simply fall back to .local / .comm in this case.
+    if (MAI->getLCOMMDirectiveAlignmentType() != LCOMM::NoAlignment) {
+      // .lcomm _foo, 42
+      OutStreamer->emitLocalCommonSymbol(GVSym, Size, Alignment.value());
+      return;
+    }
+
+    // .local _foo
+    OutStreamer->emitSymbolAttribute(GVSym, MCSA_Local);
+    // .comm _foo, 42, 4
+    const bool SupportsAlignment =
+        getObjFileLowering().getCommDirectiveSupportsAlignment();
+    OutStreamer->emitCommonSymbol(GVSym, Size,
+                                  SupportsAlignment ? Alignment.value() : 0);
+    return;
+  }
 
   emitLinkage(GV, EmittedInitSym);
   emitAlignment(Alignment, GV);

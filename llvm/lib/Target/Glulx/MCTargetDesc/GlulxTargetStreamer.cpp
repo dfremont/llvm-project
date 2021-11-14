@@ -21,24 +21,20 @@ using namespace llvm;
 GlulxTargetStreamer::GlulxTargetStreamer(MCStreamer &S) : MCTargetStreamer(S) {}
 
 // This part is for ascii assembly output
-GlulxTargetAsmStreamer::GlulxTargetAsmStreamer(MCStreamer &S,
-                                               formatted_raw_ostream &OS)
+GlulxTargetAsmStreamer::GlulxTargetAsmStreamer(MCStreamer &S)
     : GlulxTargetStreamer(S) {
-  OS << "; Preamble:\n";
-  OS << "<!include \":glulx\"\n";
-  OS << "!include \":veneer\"\n";
+  S.emitRawText(
+      "; Preamble:\n"
+      "<!include \":glulx\"\n"
+      "!include \":veneer\"\n");
 }
 
 void GlulxTargetAsmStreamer::changeSection(const MCSection *CurSection,
                                         MCSection *Section,
                                         const MCExpr *SubSection,
                                         raw_ostream &OS) {
-  SectionKind Kind = Section->getKind();
-  (void) Kind;  // used only in asserts
-  assert((Kind.isText() || Kind.isData()) && "unexpected Glulx section type");
-  assert((!CurSection || !CurSection->getKind().isData())
-         && "cannot move back to ROM after data section");
-  OS << "\t" << Section->getName() <<"\n";
+  llvm_unreachable(
+      "unexpectedly called GlulxTargetAsmStreamer::changeSection");
 }
 
 void GlulxTargetAsmStreamer::emitValue(const MCExpr *Value) {
